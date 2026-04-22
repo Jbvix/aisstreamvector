@@ -1,0 +1,12 @@
+{
+  "name": "tug-fleet-watch",
+  "version": "1.0.0",
+  "description": "Backend WebSocket para monitoramento marítimo em tempo real",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}

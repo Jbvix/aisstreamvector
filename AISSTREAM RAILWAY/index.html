@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Monitoramento de Rebocadores - Google Maps + WebSocket</title>
+
+  <!--
+    ============================================================
+    PROJETO: Google Maps + WebSocket Prototype
+    ARQUIVO: public/index.html
+    ANO: 2026
+    DATA: 2026-04-22
+    HORA: 22:00 BRT
+    VERSÃO: v1.0.0
+    AUTOR: Jossian Brito
+    ============================================================
+
+    MODIFICAÇÕES IMPLEMENTADAS:
+    - Inicialização do Google Maps
+    - Conexão com servidor WebSocket
+    - Criação dinâmica de marcadores
+    - Atualização em tempo real de posições
+    - Painel lateral de status operacional
+
+    LÓGICA DE OPERAÇÃO:
+    - O mapa inicia centralizado em uma área portuária
+    - O navegador se conecta ao WebSocket do backend
+    - Ao receber um JSON com a frota, cria ou atualiza os marcadores
+    - Cada embarcação é indexada por ID para evitar recriação desnecessária
+    ============================================================
+  -->
+
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      font-family: Arial, sans-serif;
+      background: #0f172a;
+      color: #e5e7eb;
+    }
+
+    #app {
+      display: grid;
+      grid-template-columns: 320px 1fr;
+      height: 100%;
+    }
+
+    #sidebar {
+      background: #111827;
+      padding: 16px;
+      box-sizing: border-box;
+      border-right: 1px solid #1f2937;
+      overflow-y: auto;
+    }
+
+    #sidebar h1 {
+      font-size: 18px;
+      margin-top: 0;
+    }
+
+    #status {
+      margin-bottom: 16px;
+      padding: 12px;
+      border-radius: 8px;
+      background: #1f2937;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .vessel-card {
+      background: #1f2937;
+      padding: 12px;
+      border-radius: 8px;
+      margin-bottom: 10px;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    #map {
+      width: 100%;
+      height: 100%;
+    }
+
+    .ok {
+      color: #22c55e;
+      font-weight: bold;
+    }
+
+    .warn {
+      color: #f59e0b;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <aside id="sidebar">
+      <h1>Monitoramento de Rebocadores</h1>
+
+      <div id="status">
+        Status do socket: <span id="socketStatus" class="warn">Desconectado</span><br />
+        Última atualização: <span id="lastUpdate">-</span>
+      </div>
+
+      <div id="fleetList"></div>
+    </aside>
+
+    <main id="map"></main>
+  </div>
+
+  <script>
+    let map;
+    const markers = new Map();
+    let infoWindow;
+
+    function initMap() {
+      map = new google.maps.Map(document.getElementById("map"), {
+        center: { lat: -8.398, lng: -34.955 },
+        zoom: 13,
+        mapTypeId: "roadmap",
+      });
+
+      infoWindow = new google.maps.InfoWindow();
+
+      connectWebSocket();
+    }
+
+    function connectWebSocket() {
+      const socketStatusEl = document.getElementById("socketStatus");
+      const lastUpdateEl = document.getElementById("lastUpdate");
+      const fleetListEl = document.getElementById("fleetList");
+
+      const protocol = location.protocol === "https:" ? "wss:" : "ws:";
+      const socket = new WebSocket(`${protocol}//${location.host}`);
+
+      socket.onopen = () => {
+        socketStatusEl.textContent = "Conectado";
+        socketStatusEl.className = "ok";
+      };
+
+      socket.onclose = () => {
+        socketStatusEl.textContent = "Desconectado";
+        socketStatusEl.className = "warn";
+
+        // Reconexão automática
+        setTimeout(connectWebSocket, 3000);
+      };
+
+      socket.onerror = () => {
+        socketStatusEl.textContent = "Erro";
+        socketStatusEl.className = "warn";
+      };
+
+      socket.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+
+          if (data.type === "fleet_update" && Array.isArray(data.vessels)) {
+            lastUpdateEl.textContent = new Date(data.timestamp).toLocaleString("pt-BR");
+
+            fleetListEl.innerHTML = "";
+
+            data.vessels.forEach((vessel) => {
+              updateMarker(vessel);
+              renderVesselCard(vessel, fleetListEl);
+            });
+          }
+        } catch (error) {
+          console.error("Erro ao processar mensagem do socket:", error);
+        }
+      };
+    }
+
+    function updateMarker(vessel) {
+      const position = { lat: vessel.lat, lng: vessel.lng };
+
+      if (!markers.has(vessel.id)) {
+        const marker = new google.maps.Marker({
+          position,
+          map,
+          title: vessel.name,
+          label: vessel.name.substring(0, 1),
+        });
+
+        marker.addListener("click", () => {
+          infoWindow.setContent(`
+            <div style="min-width:220px">
+              <strong>${vessel.name}</strong><br/>
+              ID: ${vessel.id}<br/>
+              Velocidade: ${vessel.speed.toFixed(1)} kn<br/>
+              Rumo: ${vessel.heading.toFixed(0)}°<br/>
+              Latitude: ${vessel.lat.toFixed(5)}<br/>
+              Longitude: ${vessel.lng.toFixed(5)}
+            </div>
+          `);
+          infoWindow.open(map, marker);
+        });
+
+        markers.set(vessel.id, marker);
+      } else {
+        const marker = markers.get(vessel.id);
+        marker.setPosition(position);
+        marker.setTitle(vessel.name);
+      }
+    }
+
+    function renderVesselCard(vessel, container) {
+      const div = document.createElement("div");
+      div.className = "vessel-card";
+
+      div.innerHTML = `
+        <strong>${vessel.name}</strong><br />
+        ID: ${vessel.id}<br />
+        Velocidade: ${vessel.speed.toFixed(1)} kn<br />
+        Rumo: ${vessel.heading.toFixed(0)}°<br />
+        Lat: ${vessel.lat.toFixed(5)}<br />
+        Lng: ${vessel.lng.toFixed(5)}
+      `;
+
+      container.appendChild(div);
+    }
+
+    window.initMap = initMap;
+  </script>
+
+  <script
+    async
+    defer
+    src="https://maps.googleapis.com/maps/api/js?key=SUA_GOOGLE_MAPS_API_KEY&callback=initMap">
+  </script>
+</body>
+</html>
