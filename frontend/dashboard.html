@@ -1,0 +1,975 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard estratégico — AIS BRASIL APP</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg: #071424;
+      --panel: #10253d;
+      --line: #2f4f6d;
+      --text: #eaf4ff;
+      --muted: #9ab6d4;
+      --accent: #35c8ff;
+      --good: #37d989;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "IBM Plex Sans", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 14px;
+      min-height: 100vh;
+      padding: 16px 18px 32px;
+    }
+    header {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 20px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid var(--line);
+    }
+    h1 {
+      margin: 0;
+      font-family: "Space Grotesk", sans-serif;
+      font-size: 1.35rem;
+      letter-spacing: 0.02em;
+    }
+    .meta {
+      color: var(--muted);
+      font-size: 0.78rem;
+    }
+    a.nav {
+      color: var(--accent);
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 0.9rem;
+    }
+    a.nav:hover { text-decoration: underline; }
+    section {
+      background: linear-gradient(180deg, rgba(16, 37, 61, 0.95), rgba(11, 29, 49, 0.92));
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 14px 16px 16px;
+      margin-bottom: 18px;
+    }
+    h2 {
+      margin: 0 0 10px;
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--accent);
+    }
+    p.hint {
+      margin: 0 0 10px;
+      font-size: 0.75rem;
+      color: var(--muted);
+      line-height: 1.4;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.8rem;
+    }
+    th, td {
+      text-align: left;
+      padding: 8px 10px;
+      border-bottom: 1px solid rgba(47, 79, 109, 0.6);
+    }
+    th {
+      color: var(--muted);
+      font-weight: 600;
+      text-transform: uppercase;
+      font-size: 0.65rem;
+      letter-spacing: 0.06em;
+    }
+    tr:last-child td { border-bottom: none; }
+    .pill {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 0.7rem;
+      font-weight: 600;
+    }
+    .pill-on { background: rgba(55, 217, 137, 0.2); color: var(--good); }
+    .pill-off { background: rgba(154, 182, 212, 0.15); color: var(--muted); }
+    .chart-wrap {
+      position: relative;
+      height: min(360px, 52vh);
+      margin-top: 8px;
+    }
+    .err {
+      color: #ffb4b4;
+      font-size: 0.85rem;
+    }
+    .sync-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    button.sync-praticagem {
+      font-family: inherit;
+      font-size: 0.78rem;
+      font-weight: 600;
+      padding: 8px 14px;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      background: rgba(53, 200, 255, 0.12);
+      color: var(--accent);
+      cursor: pointer;
+    }
+    button.sync-praticagem:hover:not(:disabled) {
+      background: rgba(53, 200, 255, 0.22);
+    }
+    button.sync-praticagem:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+    #saaSyncMsg {
+      font-size: 0.72rem;
+      color: var(--muted);
+      min-height: 1.1em;
+    }
+    #tblSaa {
+      font-size: 0.72rem;
+    }
+    #tblSaa td.num, #tblSaa th.num {
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+    #tblSaa tbody tr.saa-row--future td {
+      background: rgba(53, 200, 255, 0.12);
+    }
+    #tblSaa tbody tr.saa-row--future {
+      box-shadow: inset 0 0 0 1px rgba(53, 200, 255, 0.32);
+    }
+    #tblSaa tbody tr.saa-row--soon td {
+      background: rgba(255, 210, 90, 0.14);
+    }
+    #tblSaa tbody tr.saa-row--soon {
+      box-shadow: inset 0 0 0 1px rgba(255, 200, 70, 0.45);
+    }
+    @keyframes saaRowFlashGreen {
+      0%,
+      100% {
+        background-color: rgba(55, 217, 137, 0.14);
+        box-shadow: inset 0 0 0 1px rgba(55, 217, 137, 0.3);
+      }
+      50% {
+        background-color: rgba(55, 217, 137, 0.34);
+        box-shadow: inset 0 0 0 1px rgba(55, 217, 137, 0.55);
+      }
+    }
+    #tblSaa tbody tr.saa-row--live {
+      animation: saaRowFlashGreen 1.5s ease-in-out infinite;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      #tblSaa tbody tr.saa-row--live {
+        animation: none;
+        background-color: rgba(55, 217, 137, 0.24);
+      }
+    }
+    th.geo-lamp, td.geo-lamp {
+      text-align: center;
+      width: 3.25rem;
+    }
+    .lamp {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      vertical-align: middle;
+      background: #4a5a6e;
+      box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35);
+    }
+    .lamp--saa-on {
+      background: #2a9cff;
+      box-shadow:
+        0 0 0 1px rgba(0, 0, 0, 0.25),
+        0 0 10px 3px rgba(42, 156, 255, 0.85),
+        0 0 18px 5px rgba(42, 156, 255, 0.35);
+    }
+    .lamp--saam-on {
+      background: #37d989;
+      box-shadow:
+        0 0 0 1px rgba(0, 0, 0, 0.25),
+        0 0 10px 3px rgba(55, 217, 137, 0.9),
+        0 0 18px 5px rgba(55, 217, 137, 0.35);
+    }
+    .lamp--off {
+      background: #5a6a7e;
+      box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.35);
+    }
+    .strategy-box {
+      display: grid;
+      gap: 8px;
+    }
+    .strategy-box textarea {
+      width: 100%;
+      min-height: 90px;
+      resize: vertical;
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      background: rgba(9, 22, 37, 0.85);
+      color: var(--text);
+      padding: 10px;
+      font: inherit;
+    }
+    .strategy-box button {
+      width: fit-content;
+      padding: 8px 12px;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      background: rgba(53, 200, 255, 0.12);
+      color: var(--accent);
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .strategy-box button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    #strategyAnswer {
+      white-space: pre-wrap;
+      background: rgba(9, 22, 37, 0.65);
+      border: 1px solid rgba(47, 79, 109, 0.5);
+      border-radius: 8px;
+      padding: 10px;
+      color: var(--text);
+      font-size: 0.78rem;
+      line-height: 1.45;
+      min-height: 56px;
+    }
+    .strategy-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .hint-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 0.75rem;
+    }
+    .hint-row select {
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      background: rgba(9, 22, 37, 0.85);
+      color: var(--text);
+      padding: 5px 8px;
+    }
+  </style>
+<script>window.__DASHBOARD_OVERVIEW__={"ok": true, "userId": "default", "geofences": [{"id": "8dfd253c-ccfa-42d3-b4f7-c07ee6ab808e", "name": " BASE BRASCO", "type": "base_rebocador", "geometry": {"coordinates": [[-22.87149457325967, -43.21371316909791], [-22.870540636238783, -43.214850425720215], [-22.86858331443355, -43.21285486221314], [-22.869552093397548, -43.21165323257447]]}, "fleetScope": "SAAM-BGRA", "isActive": true, "color": "#35c8ff", "createdAt": "2026-04-24T19:24:02.417245", "updatedAt": "2026-04-24T20:11:23.330704"}, {"id": "2af02423-e209-459f-a887-813e69c5f7d4", "name": "PIER PRINCIPAL", "type": "berco", "geometry": {"coordinates": [[-22.817208369883392, -43.1554126739502], [-22.822944025383883, -43.15592765808106], [-22.823339578926372, -43.15077781677246], [-22.817485269147173, -43.15047740936279]]}, "fleetScope": "all", "isActive": true, "color": "#35c8ff", "createdAt": "2026-04-24T19:33:08.972843", "updatedAt": "2026-04-24T22:53:56.269280"}, {"id": "f97ed8c0-867c-4f0c-ab4c-5fbd20578607", "name": "PIER SECUNDARIO ", "type": "berco", "geometry": {"coordinates": [[-22.802961205052306, -43.14900755882264], [-22.802753508515647, -43.152397871017456], [-22.80719418930564, -43.15264463424683], [-22.807283199245138, -43.149361610412605]]}, "fleetScope": "all", "isActive": true, "color": "#35c8ff", "createdAt": "2026-04-24T22:52:47.645580", "updatedAt": "2026-04-24T22:52:47.645580"}, {"id": "71438a61-6cb6-41cc-aa4e-a5332cf1b3b9", "name": "TERMINAL GNL", "type": "berco", "geometry": {"coordinates": [[-22.77887216950448, -43.13348293304444], [-22.779623963314055, -43.12807559967042], [-22.786259476877788, -43.13002824783325], [-22.785665984662494, -43.13498497009278]]}, "fleetScope": "all", "isActive": true, "color": "#35c8ff", "createdAt": "2026-04-24T22:55:47.980543", "updatedAt": "2026-04-24T22:56:14.532821"}, {"id": "0e55d520-01a5-4d1d-b64b-bde132fd9906", "name": "TERMINAL MULTIRIO", "type": "berco", "geometry": {"coordinates": [[-22.870520865452463, -43.20150375366212], [-22.87332828830085, -43.19785594940186], [-22.886257500675562, -43.21038722991944], [-22.88396433570896, -43.21371316909791]]}, "fleetScope": "all", "isActive": true, "color": "#35c8ff", "createdAt": "2026-04-24T23:01:47.212374", "updatedAt": "2026-04-24T23:02:52.420934"}, {"id": "9af8cc13-9c5b-4603-aa25-1aba2610df48", "name": "ARMAZEM 09 -12", "type": "berco", "geometry": {"coordinates": [[-22.89278897830569, -43.20369243621826], [-22.8949603022133, -43.20271074771882], [-22.89225710675302, -43.19595694541932], [-22.890080797602238, -43.19708347320557]]}, "fleetScope": "all", "isActive": true, "color": "#35c8ff", "createdAt": "2026-04-24T23:07:11.638915", "updatedAt": "2026-04-24T23:07:36.272773"}, {"id": "a9371335-35a4-4773-9679-b5028c44c4df", "name": "ARMAZEM 01 -08", "type": "berco", "geometry": {"coordinates": [[-22.889764510199743, -43.19575309753419], [-22.89197248357623, -43.19580674171448], [-22.891974491229593, -43.19087147712708], [-22.895062226948255, -43.18137645721436], [-22.893373972832322, -43.1805181503296], [-22.88979601542327, -43.19068908691407]]}, "fleetScope": "all", "isActive": true, "color": "#35c8ff", "createdAt": "2026-04-24T23:09:01.641409", "updatedAt": "2026-04-24T23:09:25.403502"}, {"id": "bg-interno-persistente", "name": "Baia de Guanabara Interno", "type": "polygon", "geometry": {"coordinates": [[-22.76469612409638, -43.037567138671875], [-22.77102754753483, -43.2806396484375], [-22.966251824108987, -43.17352294921876], [-22.93577719135005, -43.09138298034669]]}, "fleetScope": "all", "isActive": true, "color": "#35c8ff", "createdAt": "2026-04-27T14:40:24.042746", "updatedAt": "2026-04-27T21:16:00.064831", "persistent": true}], "geofenceStatus": [{"id": "8dfd253c-ccfa-42d3-b4f7-c07ee6ab808e", "name": " BASE BRASCO", "type": "base_rebocador", "fleetScope": "SAAM-BGRA", "isActive": true, "vesselCount": 0, "insideVessels": [], "lampSaaManeuver": true, "lampSaamInside": false, "lampSaaNames": ["PIER PRINCIPAL — OLAVO BILAC", "PIER SECUNDARIO — OCIOS IOANNIS", "TERMINAL GNL — EXPERIENCE", "TERMINAL MULTIRIO — GRANDE SAN PAOLO", "TERMINAL MULTIRIO — FELIXSTOWE", "TERMINAL MULTIRIO — BOCHEM SHANGHAI", "TERMINAL MULTIRIO — ITHACA", "TERMINAL MULTIRIO — JOSE GUILHEME VIII", "ARMAZEM 09 -12 — CALLIO", "ARMAZEM 09 -12 — SM PONTAL", "ARMAZEM 01 -08 — WS PEGASUS", "ARMAZEM 01 -08 — NORTH OCEAN 102"], "lampSaamNames": [], "emManobra": "stand-by"}, {"id": "2af02423-e209-459f-a887-813e69c5f7d4", "name": "PIER PRINCIPAL", "type": "berco", "fleetScope": "all", "isActive": true, "vesselCount": 1, "insideVessels": [{"mmsi": "710003752", "shipName": "OLAVO BILAC         ", "shipCategory": "petroleiro", "fleet": null, "timestamp": "2026-05-30 16:40:17.219390472 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.81921, "longitude": -43.15315}], "lampSaaManeuver": true, "lampSaamInside": false, "lampSaaNames": ["OLAVO BILAC"], "lampSaamNames": [], "emManobra": "—"}, {"id": "f97ed8c0-867c-4f0c-ab4c-5fbd20578607", "name": "PIER SECUNDARIO ", "type": "berco", "fleetScope": "all", "isActive": true, "vesselCount": 1, "insideVessels": [{"mmsi": "636023848", "shipName": "OCIOS IOANNIS       ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:17:55.528877937 +0000 UTC", "heading": 2.0, "course": null, "isSaamBgra": false, "latitude": -22.80534, "longitude": -43.15059}], "lampSaaManeuver": true, "lampSaamInside": false, "lampSaaNames": ["OCIOS IOANNIS"], "lampSaamNames": [], "emManobra": "—"}, {"id": "71438a61-6cb6-41cc-aa4e-a5332cf1b3b9", "name": "TERMINAL GNL", "type": "berco", "fleetScope": "all", "isActive": true, "vesselCount": 1, "insideVessels": [{"mmsi": "538004501", "shipName": "EXPERIENCE          ", "shipCategory": "petroleiro", "fleet": null, "timestamp": "2026-05-30 17:17:09.15588676 +0000 UTC", "heading": 188.0, "course": null, "isSaamBgra": false, "latitude": -22.78189, "longitude": -43.13241}], "lampSaaManeuver": true, "lampSaamInside": false, "lampSaaNames": ["EXPERIENCE"], "lampSaamNames": [], "emManobra": "—"}, {"id": "0e55d520-01a5-4d1d-b64b-bde132fd9906", "name": "TERMINAL MULTIRIO", "type": "berco", "fleetScope": "all", "isActive": true, "vesselCount": 7, "insideVessels": [{"mmsi": "247091500", "shipName": "GRANDE SAN PAOLO    ", "shipCategory": "carga", "fleet": null, "timestamp": "2026-05-30 17:43:21.126314845 +0000 UTC", "heading": 221.0, "course": null, "isSaamBgra": false, "latitude": -22.88348, "longitude": -43.21242}, {"mmsi": "311001345", "shipName": "FELIXSTOWE          ", "shipCategory": "carga", "fleet": null, "timestamp": "2026-05-30 17:45:31.980226063 +0000 UTC", "heading": 140.0, "course": null, "isSaamBgra": false, "latitude": -22.8751, "longitude": -43.20111}, {"mmsi": "710021750", "shipName": "SAAM CHILE          ", "shipCategory": "rebocador_servico", "fleet": "SAAM-BGRA", "timestamp": "2026-05-30 17:44:09.660507355 +0000 UTC", "heading": 511.0, "course": null, "isSaamBgra": true, "latitude": -22.87591, "longitude": -43.20098}, {"mmsi": "255915794", "shipName": "BOCHEM SHANGHAI     ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:25:10.875846301 +0000 UTC", "heading": 41.0, "course": null, "isSaamBgra": false, "latitude": -22.87316, "longitude": -43.20279}, {"mmsi": "710001249", "shipName": "SAAM PARECI         ", "shipCategory": "rebocador_servico", "fleet": null, "timestamp": "2026-05-30 17:42:39.048042309 +0000 UTC", "heading": 511.0, "course": null, "isSaamBgra": false, "latitude": -22.87372, "longitude": -43.20224}, {"mmsi": "636025521", "shipName": "ITHACA              ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:25:15.211334632 +0000 UTC", "heading": 221.0, "course": null, "isSaamBgra": false, "latitude": -22.87957, "longitude": -43.20868}, {"mmsi": "710001991", "shipName": "JOSE GUILHEME VIII  ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:34:04.556682845 +0000 UTC", "heading": 511.0, "course": null, "isSaamBgra": false, "latitude": -22.87452, "longitude": -43.20249}], "lampSaaManeuver": true, "lampSaamInside": true, "lampSaaNames": ["GRANDE SAN PAOLO", "FELIXSTOWE", "BOCHEM SHANGHAI", "ITHACA", "JOSE GUILHEME VIII"], "lampSaamNames": ["SAAM CHILE"], "emManobra": "SAAM CHILE + FELIXSTOWE"}, {"id": "9af8cc13-9c5b-4603-aa25-1aba2610df48", "name": "ARMAZEM 09 -12", "type": "berco", "fleetScope": "all", "isActive": true, "vesselCount": 2, "insideVessels": [{"mmsi": "352112000", "shipName": "CALLIO              ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 16:49:40.993416059 +0000 UTC", "heading": 248.0, "course": null, "isSaamBgra": false, "latitude": -22.8919, "longitude": -43.19627}, {"mmsi": "710007281", "shipName": "SM PONTAL", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:02:32.517979066 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.89275, "longitude": -43.20129}], "lampSaaManeuver": true, "lampSaamInside": false, "lampSaaNames": ["CALLIO", "SM PONTAL"], "lampSaamNames": [], "emManobra": "—"}, {"id": "a9371335-35a4-4773-9679-b5028c44c4df", "name": "ARMAZEM 01 -08", "type": "berco", "fleetScope": "all", "isActive": true, "vesselCount": 3, "insideVessels": [{"mmsi": "710018340", "shipName": "WS PEGASUS          ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:45:47.980323437 +0000 UTC", "heading": 511.0, "course": null, "isSaamBgra": false, "latitude": -22.89186, "longitude": -43.19142}, {"mmsi": "710000391", "shipName": "WEZEN               ", "shipCategory": "rebocador_servico", "fleet": null, "timestamp": "2026-05-30 17:42:05.499988946 +0000 UTC", "heading": 511.0, "course": null, "isSaamBgra": false, "latitude": -22.89188, "longitude": -43.19147}, {"mmsi": "249335000", "shipName": "NORTH OCEAN 102", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:38:04.452136308 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.89214, "longitude": -43.19033}], "lampSaaManeuver": true, "lampSaamInside": false, "lampSaaNames": ["WS PEGASUS", "NORTH OCEAN 102"], "lampSaamNames": [], "emManobra": "—"}, {"id": "bg-interno-persistente", "name": "Baia de Guanabara Interno", "type": "polygon", "fleetScope": "all", "isActive": true, "vesselCount": 194, "insideVessels": [{"mmsi": "710027960", "shipName": "BARU TESORO", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:44:04.326699189 +0000 UTC", "heading": 235.0, "course": null, "isSaamBgra": false, "latitude": -22.84816, "longitude": -43.18592}, {"mmsi": "710441586", "shipName": "BR", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 16:04:36.537837666 +0000 UTC", "heading": 225.0, "course": null, "isSaamBgra": false, "latitude": -22.87979, "longitude": -43.12008}, {"mmsi": "710102030", "shipName": "GAVEA", "shipCategory": "passageiros", "fleet": null, "timestamp": "2026-05-30 17:45:43.899839691 +0000 UTC", "heading": 511.0, "course": null, "isSaamBgra": false, "latitude": -22.90264, "longitude": -43.17103}, {"mmsi": "710238000", "shipName": "STARNAV CENTAURUS   ", "shipCategory": "carga", "fleet": null, "timestamp": "2026-05-30 17:45:27.180173675 +0000 UTC", "heading": 197.0, "course": null, "isSaamBgra": false, "latitude": -22.86195, "longitude": -43.16401}, {"mmsi": "710003612", "shipName": "COXON TIDE          ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:44:47.800234172 +0000 UTC", "heading": 272.0, "course": null, "isSaamBgra": false, "latitude": -22.8488, "longitude": -43.13297}, {"mmsi": "710018340", "shipName": "WS PEGASUS          ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:45:47.980323437 +0000 UTC", "heading": 511.0, "course": null, "isSaamBgra": false, "latitude": -22.89186, "longitude": -43.19142}, {"mmsi": "710027720", "shipName": "ASGAARD SOPHIA", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:44:09.675089924 +0000 UTC", "heading": 157.0, "course": null, "isSaamBgra": false, "latitude": -22.83171, "longitude": -43.0983}, {"mmsi": "710019330", "shipName": "BRAM TITAN          ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:13:39.122518005 +0000 UTC", "heading": 225.0, "course": null, "isSaamBgra": false, "latitude": -22.84443, "longitude": -43.14013}, {"mmsi": "710000294", "shipName": "BJ BLUE MARLIN", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:29:18.232604025 +0000 UTC", "heading": 67.0, "course": null, "isSaamBgra": false, "latitude": -22.88007, "longitude": -43.11949}, {"mmsi": "710028360", "shipName": "Sem nome", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 16:16:16.570755371 +0000 UTC", "heading": 217.0, "course": null, "isSaamBgra": false, "latitude": -22.95162, "longitude": -43.14917}, {"mmsi": "710021560", "shipName": "BARU MUCURA         ", "shipCategory": "carga", "fleet": null, "timestamp": "2026-05-30 17:45:27.716298867 +0000 UTC", "heading": 260.0, "course": null, "isSaamBgra": false, "latitude": -22.85211, "longitude": -43.18837}, {"mmsi": "710025710", "shipName": "CIDADE OURO PRETO   ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:43:20.686337593 +0000 UTC", "heading": 253.0, "course": null, "isSaamBgra": false, "latitude": -22.82012, "longitude": -43.11603}, {"mmsi": "303150000", "shipName": "ROBERT ADAMS        ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 16:23:16.432368993 +0000 UTC", "heading": 148.0, "course": null, "isSaamBgra": false, "latitude": -22.8579, "longitude": -43.18765}, {"mmsi": "247091500", "shipName": "GRANDE SAN PAOLO    ", "shipCategory": "carga", "fleet": null, "timestamp": "2026-05-30 17:43:21.126314845 +0000 UTC", "heading": 221.0, "course": null, "isSaamBgra": false, "latitude": -22.88348, "longitude": -43.21242}, {"mmsi": "710108765", "shipName": "Sem nome", "shipCategory": "pesca", "fleet": null, "timestamp": "2026-05-30 17:30:04.353984269 +0000 UTC", "heading": 349.0, "course": null, "isSaamBgra": false, "latitude": -22.87732, "longitude": -43.12516}, {"mmsi": "710026910", "shipName": "EXCALIBUR           ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:11:40.237780939 +0000 UTC", "heading": 511.0, "course": null, "isSaamBgra": false, "latitude": -22.86763, "longitude": -43.11217}, {"mmsi": "710000180", "shipName": "SEVEN SABIA         ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 16:23:55.573937247 +0000 UTC", "heading": 511.0, "course": null, "isSaamBgra": false, "latitude": -22.87369, "longitude": -43.12142}, {"mmsi": "710000009", "shipName": "HERCULES            ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:44:46.252062886 +0000 UTC", "heading": 511.0, "course": null, "isSaamBgra": false, "latitude": -22.89203, "longitude": -43.19148}, {"mmsi": "710007494", "shipName": "JACK EDWARDS        ", "shipCategory": "pesca", "fleet": null, "timestamp": "2026-05-30 17:44:52.808068973 +0000 UTC", "heading": 142.0, "course": null, "isSaamBgra": false, "latitude": -22.85801, "longitude": -43.17687}, {"mmsi": "710018820", "shipName": "C SEPETIBA", "shipCategory": "carga", "fleet": null, "timestamp": "2026-05-30 17:44:51.74043466 +0000 UTC", "heading": 247.0, "course": null, "isSaamBgra": false, "latitude": -22.8738, "longitude": -43.12247}, {"mmsi": "710015310", "shipName": "ARTHUR              ", "shipCategory": "rebocador_servico", "fleet": "SAAM-BGRA", "timestamp": "2026-05-30 17:44:46.407963804 +0000 UTC", "heading": 511.0, "course": null, "isSaamBgra": true, "latitude": -22.83785, "longitude": -43.15297}, {"mmsi": "710006132", "shipName": "Sem nome", "shipCategory": "rebocador_servico", "fleet": null, "timestamp": "2026-05-30 16:59:57.930502377 +0000 UTC", "heading": 511.0, "course": null, "isSaamBgra": false, "latitude": -22.81983, "longitude": -43.11574}, {"mmsi": "413289780", "shipName": "HANG JUN 4019       ", "shipCategory": "pesca", "fleet": null, "timestamp": "2026-05-30 17:45:18.715220915 +0000 UTC", "heading": 127.0, "course": null, "isSaamBgra": false, "latitude": -22.86791, "longitude": -43.20765}, {"mmsi": "710003050", "shipName": "ASSO VENTISETTE     ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:45:08.64893073 +0000 UTC", "heading": 286.0, "course": null, "isSaamBgra": false, "latitude": -22.83564, "longitude": -43.14137}, {"mmsi": "710014391", "shipName": "E-241", "shipCategory": "petroleiro", "fleet": null, "timestamp": "2026-05-30 17:41:07.660398787 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.82322, "longitude": -43.11455}, {"mmsi": "710020960", "shipName": "NEVES V", "shipCategory": "passageiros", "fleet": null, "timestamp": "2026-05-30 17:39:51.527848778 +0000 UTC", "heading": 511.0, "course": null, "isSaamBgra": false, "latitude": -22.89636, "longitude": -43.16027}, {"mmsi": "710025850", "shipName": "CBO OCEANA          ", "shipCategory": "carga", "fleet": null, "timestamp": "2026-05-30 17:43:21.017016446 +0000 UTC", "heading": 157.0, "course": null, "isSaamBgra": false, "latitude": -22.89453, "longitude": -43.21223}, {"mmsi": "710102046", "shipName": "CHARITAS", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 16:57:31.317664907 +0000 UTC", "heading": 511.0, "course": null, "isSaamBgra": false, "latitude": -22.89311, "longitude": -43.12466}, {"mmsi": "710999976", "shipName": "ACE OPTIMUS         ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:45:48.160064483 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.82252, "longitude": -43.0896}, {"mmsi": "710019710", "shipName": "URCA III", "shipCategory": "passageiros", "fleet": null, "timestamp": "2026-05-30 17:02:39.100436564 +0000 UTC", "heading": 511.0, "course": null, "isSaamBgra": false, "latitude": -22.76731, "longitude": -43.10091}, {"mmsi": "710016030", "shipName": "LANCELOT            ", "shipCategory": "rebocador_servico", "fleet": "SAAM-BGRA", "timestamp": "2026-05-30 17:43:49.661281428 +0000 UTC", "heading": 511.0, "course": null, "isSaamBgra": true, "latitude": -22.84885, "longitude": -43.15488}, {"mmsi": "710400522", "shipName": "SKANDI_CARLA", "shipCategory": "carga", "fleet": null, "timestamp": "2026-05-30 17:43:19.804531636 +0000 UTC", "heading": 511.0, "course": null, "isSaamBgra": false, "latitude": -22.86655, "longitude": -43.13006}, {"mmsi": "710004485", "shipName": "ANGRA DOS REIS", "shipCategory": "passageiros", "fleet": null, "timestamp": "2026-05-30 17:43:59.612275349 +0000 UTC", "heading": 511.0, "course": null, "isSaamBgra": false, "latitude": -22.87907, "longitude": -43.12055}, {"mmsi": "710002967", "shipName": "RS MACAE", "shipCategory": "rebocador_servico", "fleet": null, "timestamp": "2026-05-30 17:43:49.476263656 +0000 UTC", "heading": 511.0, "course": null, "isSaamBgra": false, "latitude": -22.87433, "longitude": -43.11316}, {"mmsi": "311001345", "shipName": "FELIXSTOWE          ", "shipCategory": "carga", "fleet": null, "timestamp": "2026-05-30 17:45:31.980226063 +0000 UTC", "heading": 140.0, "course": null, "isSaamBgra": false, "latitude": -22.8751, "longitude": -43.20111}, {"mmsi": "710011000", "shipName": "SEASTAR VIRTUS      ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 16:19:14.241506146 +0000 UTC", "heading": 511.0, "course": null, "isSaamBgra": false, "latitude": -22.89199, "longitude": -43.21352}, {"mmsi": "710024720", "shipName": "BRAM BUCK           ", "shipCategory": "carga", "fleet": null, "timestamp": "2026-05-30 17:43:24.731783843 +0000 UTC", "heading": 237.0, "course": null, "isSaamBgra": false, "latitude": -22.84149, "longitude": -43.14729}, {"mmsi": "710102038", "shipName": "INGA II", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:43:25.636735754 +0000 UTC", "heading": 511.0, "course": null, "isSaamBgra": false, "latitude": -22.90217, "longitude": -43.17176}, {"mmsi": "538007877", "shipName": "SEACOR NILE         ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:22:20.719695507 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.83907, "longitude": -43.12969}, {"mmsi": "710000880", "shipName": "TS VALENTE          ", "shipCategory": "pesca", "fleet": null, "timestamp": "2026-05-30 17:41:58.932130787 +0000 UTC", "heading": 282.0, "course": null, "isSaamBgra": false, "latitude": -22.90217, "longitude": -43.14167}, {"mmsi": "710003682", "shipName": "PROF. LUIZ CARLOS   ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:39:26.007023122 +0000 UTC", "heading": 309.0, "course": null, "isSaamBgra": false, "latitude": -22.9167, "longitude": -43.17004}, {"mmsi": "351859000", "shipName": "SEWARD JOHNSON      ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:40:17.465304603 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.86985, "longitude": -43.12183}, {"mmsi": "710260000", "shipName": "AMBIPAR PLACIDO     ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:42:06.916041442 +0000 UTC", "heading": 289.0, "course": null, "isSaamBgra": false, "latitude": -22.87401, "longitude": -43.12254}, {"mmsi": "710001593", "shipName": "SAAM HOLANDA", "shipCategory": "rebocador_servico", "fleet": "SAAM-BGRA", "timestamp": "2026-05-30 17:44:51.956335467 +0000 UTC", "heading": 511.0, "course": null, "isSaamBgra": true, "latitude": -22.84348, "longitude": -43.15534}, {"mmsi": "710001550", "shipName": "PARCEL DAS TIMBEBAS ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:31:53.127990848 +0000 UTC", "heading": 197.0, "course": null, "isSaamBgra": false, "latitude": -22.852, "longitude": -43.1419}, {"mmsi": "710012730", "shipName": "AVANTI SHADOW", "shipCategory": "lazer", "fleet": null, "timestamp": "2026-05-30 17:38:04.04864959 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.79343, "longitude": -43.15551}, {"mmsi": "710025950", "shipName": "MANDRIAO            ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:41:09.06590916 +0000 UTC", "heading": 90.0, "course": null, "isSaamBgra": false, "latitude": -22.8777, "longitude": -43.12196}, {"mmsi": "710021750", "shipName": "SAAM CHILE          ", "shipCategory": "rebocador_servico", "fleet": "SAAM-BGRA", "timestamp": "2026-05-30 17:44:09.660507355 +0000 UTC", "heading": 511.0, "course": null, "isSaamBgra": true, "latitude": -22.87591, "longitude": -43.20098}, {"mmsi": "710030930", "shipName": "HARPIA", "shipCategory": "passageiros", "fleet": null, "timestamp": "2026-05-30 17:44:47.635835488 +0000 UTC", "heading": 511.0, "course": null, "isSaamBgra": false, "latitude": -22.89523, "longitude": -43.13677}, {"mmsi": "710006364", "shipName": "SPRINGBOK           ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:44:04.165280936 +0000 UTC", "heading": 337.0, "course": null, "isSaamBgra": false, "latitude": -22.8883, "longitude": -43.21526}, {"mmsi": "710810002", "shipName": "LUIZ REBELO II      ", "shipCategory": "petroleiro", "fleet": null, "timestamp": "2026-05-30 17:42:00.609294774 +0000 UTC", "heading": 511.0, "course": null, "isSaamBgra": false, "latitude": -22.82753, "longitude": -43.15339}, {"mmsi": "730154277", "shipName": "SAN ANDRES IV       ", "shipCategory": "petroleiro", "fleet": null, "timestamp": "2026-05-30 16:08:44.177449262 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.84734, "longitude": -43.14178}, {"mmsi": "636014716", "shipName": "MARLIN              ", "shipCategory": "petroleiro", "fleet": null, "timestamp": "2026-05-30 17:41:13.956053928 +0000 UTC", "heading": 359.0, "course": null, "isSaamBgra": false, "latitude": -22.85268, "longitude": -43.15495}, {"mmsi": "636023848", "shipName": "OCIOS IOANNIS       ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:17:55.528877937 +0000 UTC", "heading": 2.0, "course": null, "isSaamBgra": false, "latitude": -22.80534, "longitude": -43.15059}, {"mmsi": "338896000", "shipName": "JUAN C              ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:06:22.483147791 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.84731, "longitude": -43.13864}, {"mmsi": "710000391", "shipName": "WEZEN               ", "shipCategory": "rebocador_servico", "fleet": null, "timestamp": "2026-05-30 17:42:05.499988946 +0000 UTC", "heading": 511.0, "course": null, "isSaamBgra": false, "latitude": -22.89188, "longitude": -43.19147}, {"mmsi": "710031280", "shipName": "BRAVANTE II         ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:39:40.719870414 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.84963, "longitude": -43.14887}, {"mmsi": "710006681", "shipName": "DUFOUR 41", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:19:13.992310443 +0000 UTC", "heading": 226.0, "course": null, "isSaamBgra": false, "latitude": -22.9285, "longitude": -43.15227}, {"mmsi": "413381580", "shipName": "HANG JUN 6009       ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:45:32.177671848 +0000 UTC", "heading": 271.0, "course": null, "isSaamBgra": false, "latitude": -22.86393, "longitude": -43.17248}, {"mmsi": "710050000", "shipName": "YVAN BARRETTO       ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:44:32.412186029 +0000 UTC", "heading": 293.0, "course": null, "isSaamBgra": false, "latitude": -22.83976, "longitude": -43.12689}, {"mmsi": "710002240", "shipName": "C DIAMANTE", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:28:44.224061778 +0000 UTC", "heading": 511.0, "course": null, "isSaamBgra": false, "latitude": -22.87413, "longitude": -43.1221}, {"mmsi": "710004920", "shipName": "CD SERRA DA ESTRELA", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:43:25.71619944 +0000 UTC", "heading": 511.0, "course": null, "isSaamBgra": false, "latitude": -22.82021, "longitude": -43.11608}, {"mmsi": "710005647", "shipName": "DRATEC XXII", "shipCategory": "carga", "fleet": null, "timestamp": "2026-05-30 16:43:55.247819595 +0000 UTC", "heading": 47.0, "course": null, "isSaamBgra": false, "latitude": -22.87086, "longitude": -43.20481}, {"mmsi": "710004827", "shipName": "PILOT 20", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:44:47.660349092 +0000 UTC", "heading": 511.0, "course": null, "isSaamBgra": false, "latitude": -22.8862, "longitude": -43.14396}, {"mmsi": "710004633", "shipName": "NEW TROVAO", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 16:35:23.891943138 +0000 UTC", "heading": 511.0, "course": null, "isSaamBgra": false, "latitude": -22.87418, "longitude": -43.12158}, {"mmsi": "710004861", "shipName": "PARCEL DOS MEROS    ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:33:06.700088017 +0000 UTC", "heading": 255.0, "course": null, "isSaamBgra": false, "latitude": -22.87687, "longitude": -43.13079}, {"mmsi": "710012550", "shipName": "SAAM PATAXO         ", "shipCategory": "rebocador_servico", "fleet": null, "timestamp": "2026-05-30 17:43:26.487929306 +0000 UTC", "heading": 511.0, "course": null, "isSaamBgra": false, "latitude": -22.84848, "longitude": -43.15553}, {"mmsi": "710000114", "shipName": "C VENDAVAL", "shipCategory": "rebocador_servico", "fleet": null, "timestamp": "2026-05-30 16:40:23.819156786 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.86919, "longitude": -43.11185}, {"mmsi": "9124952", "shipName": "DEUS E BOM", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:25:46.322334103 +0000 UTC", "heading": 314.0, "course": null, "isSaamBgra": false, "latitude": -22.92366, "longitude": -43.11631}, {"mmsi": "220580000", "shipName": "MAERSK LAUNCHER     ", "shipCategory": "pesca", "fleet": null, "timestamp": "2026-05-30 17:27:21.81439441 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.84141, "longitude": -43.14403}, {"mmsi": "710008137", "shipName": "COSTA DO FUTURO     ", "shipCategory": "petroleiro", "fleet": null, "timestamp": "2026-05-30 17:25:49.779693822 +0000 UTC", "heading": 244.0, "course": null, "isSaamBgra": false, "latitude": -22.83285, "longitude": -43.13506}, {"mmsi": "710003146", "shipName": "PILOT 14", "shipCategory": "rebocador_servico", "fleet": null, "timestamp": "2026-05-30 17:23:04.53974311 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.89205, "longitude": -43.19255}, {"mmsi": "710016770", "shipName": "CBO IPANEMA         ", "shipCategory": "carga", "fleet": null, "timestamp": "2026-05-30 17:32:26.2477428 +0000 UTC", "heading": 113.0, "course": null, "isSaamBgra": false, "latitude": -22.87288, "longitude": -43.12472}, {"mmsi": "710004737", "shipName": "SABLE               ", "shipCategory": "pesca", "fleet": null, "timestamp": "2026-05-30 17:42:27.903214274 +0000 UTC", "heading": 156.0, "course": null, "isSaamBgra": false, "latitude": -22.89367, "longitude": -43.21263}, {"mmsi": "710028160", "shipName": "DRATEC XXI", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:06:27.130979909 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.87083, "longitude": -43.20466}, {"mmsi": "710027550", "shipName": "C TURMALINA", "shipCategory": "rebocador_servico", "fleet": null, "timestamp": "2026-05-30 17:22:27.382495155 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.874, "longitude": -43.12209}, {"mmsi": "220577000", "shipName": "MAERSK LEADER       ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:18:31.768065455 +0000 UTC", "heading": 232.0, "course": null, "isSaamBgra": false, "latitude": -22.838, "longitude": -43.14789}, {"mmsi": "710400615", "shipName": "SEACOR DEMERARA     ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:45:31.902728555 +0000 UTC", "heading": 180.0, "course": null, "isSaamBgra": false, "latitude": -22.85517, "longitude": -43.16734}, {"mmsi": "710810003", "shipName": "LUIZ REBELO III     ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:09:12.088147347 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.87778, "longitude": -43.14718}, {"mmsi": "710335000", "shipName": "STARNAV REGULUS     ", "shipCategory": "carga", "fleet": null, "timestamp": "2026-05-30 17:04:04.781347765 +0000 UTC", "heading": 181.0, "course": null, "isSaamBgra": false, "latitude": -22.85614, "longitude": -43.16144}, {"mmsi": "255915794", "shipName": "BOCHEM SHANGHAI     ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:25:10.875846301 +0000 UTC", "heading": 41.0, "course": null, "isSaamBgra": false, "latitude": -22.87316, "longitude": -43.20279}, {"mmsi": "710027710", "shipName": "FERNANDO DE NORONHA ", "shipCategory": "rebocador_servico", "fleet": null, "timestamp": "2026-05-30 17:13:13.555979206 +0000 UTC", "heading": 165.0, "course": null, "isSaamBgra": false, "latitude": -22.82551, "longitude": -43.09221}, {"mmsi": "710004871", "shipName": "PEROA X", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:37:22.581004639 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.81009, "longitude": -43.16318}, {"mmsi": "366017000", "shipName": "ROGER WHITE         ", "shipCategory": "carga", "fleet": null, "timestamp": "2026-05-30 17:22:43.419704258 +0000 UTC", "heading": 247.0, "course": null, "isSaamBgra": false, "latitude": -22.84178, "longitude": -43.1342}, {"mmsi": "352002481", "shipName": "BARU SIERRA NEVADA  ", "shipCategory": "carga", "fleet": null, "timestamp": "2026-05-30 17:25:55.841168794 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.84843, "longitude": -43.13028}, {"mmsi": "710005681", "shipName": "KUDU                ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 16:37:56.339744938 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.89785, "longitude": -43.17422}, {"mmsi": "345050079", "shipName": "LAGUNERO            ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:39:30.319039776 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.86078, "longitude": -43.1284}, {"mmsi": "710020980", "shipName": "ZEUS", "shipCategory": "passageiros", "fleet": null, "timestamp": "2026-05-30 17:42:44.320233269 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.87852, "longitude": -43.12087}, {"mmsi": "710000490", "shipName": "ILHA DO CABO FRIO   ", "shipCategory": "carga", "fleet": null, "timestamp": "2026-05-30 16:19:54.124715559 +0000 UTC", "heading": 216.0, "course": null, "isSaamBgra": false, "latitude": -22.85009, "longitude": -43.14549}, {"mmsi": "710001249", "shipName": "SAAM PARECI         ", "shipCategory": "rebocador_servico", "fleet": null, "timestamp": "2026-05-30 17:42:39.048042309 +0000 UTC", "heading": 511.0, "course": null, "isSaamBgra": false, "latitude": -22.87372, "longitude": -43.20224}, {"mmsi": "710008540", "shipName": "BRAM BELEM          ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:10:56.692553902 +0000 UTC", "heading": 181.0, "course": null, "isSaamBgra": false, "latitude": -22.86348, "longitude": -43.16107}, {"mmsi": "9131024", "shipName": "HERDEIRO DE DEUS", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:34:58.792076988 +0000 UTC", "heading": 239.0, "course": null, "isSaamBgra": false, "latitude": -22.87762, "longitude": -43.12268}, {"mmsi": "710032310", "shipName": "C TEMPESTADE        ", "shipCategory": "rebocador_servico", "fleet": null, "timestamp": "2026-05-30 17:38:02.2548208 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.87408, "longitude": -43.12167}, {"mmsi": "205464000", "shipName": "MINERAL NIMBUS      ", "shipCategory": "carga", "fleet": null, "timestamp": "2026-05-30 17:37:16.990849555 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.87779, "longitude": -43.14687}, {"mmsi": "710028950", "shipName": "PARCEL DO BADEJO    ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 16:14:43.763457333 +0000 UTC", "heading": 65.0, "course": null, "isSaamBgra": false, "latitude": -22.8809, "longitude": -43.12011}, {"mmsi": "710033590", "shipName": "MARINA 1            ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:39:51.260917102 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.82801, "longitude": -43.16339}, {"mmsi": "710007514", "shipName": "RS CORREGO DO OURO", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:21:31.636425923 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.92263, "longitude": -43.11745}, {"mmsi": "9118357", "shipName": "ONWA18357", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 16:45:37.520958496 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.93045, "longitude": -43.11683}, {"mmsi": "636025521", "shipName": "ITHACA              ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:25:15.211334632 +0000 UTC", "heading": 221.0, "course": null, "isSaamBgra": false, "latitude": -22.87957, "longitude": -43.20868}, {"mmsi": "710003752", "shipName": "OLAVO BILAC         ", "shipCategory": "petroleiro", "fleet": null, "timestamp": "2026-05-30 16:40:17.219390472 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.81921, "longitude": -43.15315}, {"mmsi": "710009970", "shipName": "TS ASSANHADO", "shipCategory": "rebocador_servico", "fleet": null, "timestamp": "2026-05-30 17:40:16.281464954 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.81725, "longitude": -43.11131}, {"mmsi": "710015100", "shipName": "CNA 151", "shipCategory": "petroleiro", "fleet": null, "timestamp": "2026-05-30 17:07:01.589888458 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.82452, "longitude": -43.0933}, {"mmsi": "719240218", "shipName": "M ZAG", "shipCategory": "rebocador_servico", "fleet": null, "timestamp": "2026-05-30 17:30:42.408630278 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.86293, "longitude": -43.1614}, {"mmsi": "710001100", "shipName": "SINGRAR             ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:14:52.541759916 +0000 UTC", "heading": 243.0, "course": null, "isSaamBgra": false, "latitude": -22.84453, "longitude": -43.13145}, {"mmsi": "710028210", "shipName": "CBO ISABELLA", "shipCategory": "rebocador_servico", "fleet": null, "timestamp": "2026-05-30 17:41:08.691349919 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.84198, "longitude": -43.13687}, {"mmsi": "563167300", "shipName": "VIALLI              ", "shipCategory": "petroleiro", "fleet": null, "timestamp": "2026-05-30 17:00:27.681405806 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.82226, "longitude": -43.14189}, {"mmsi": "710000286", "shipName": "TS FISSURADO        ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:30:47.023951151 +0000 UTC", "heading": 511.0, "course": null, "isSaamBgra": false, "latitude": -22.90223, "longitude": -43.1408}, {"mmsi": "710004958", "shipName": "DELFOS 2            ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:28:07.950997168 +0000 UTC", "heading": 511.0, "course": null, "isSaamBgra": false, "latitude": -22.93359, "longitude": -43.10617}, {"mmsi": "710007318", "shipName": "BRAM RIO            ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:01:07.064010344 +0000 UTC", "heading": 167.0, "course": null, "isSaamBgra": false, "latitude": -22.86039, "longitude": -43.17009}, {"mmsi": "257794000", "shipName": "NORMAND NAVIGATOR   ", "shipCategory": "carga", "fleet": null, "timestamp": "2026-05-30 17:44:46.036674564 +0000 UTC", "heading": 240.0, "course": null, "isSaamBgra": false, "latitude": -22.82808, "longitude": -43.13489}, {"mmsi": "710007898", "shipName": "ALMAR ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:15:05.85099683 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.91869, "longitude": -43.17076}, {"mmsi": "710023860", "shipName": "GNL 1008", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:31:29.047769101 +0000 UTC", "heading": 511.0, "course": null, "isSaamBgra": false, "latitude": -22.83082, "longitude": -43.09887}, {"mmsi": "710039000", "shipName": "GEONISIO BARROSO    ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 16:37:54.821330418 +0000 UTC", "heading": 66.0, "course": null, "isSaamBgra": false, "latitude": -22.88039, "longitude": -43.11922}, {"mmsi": "538004501", "shipName": "EXPERIENCE          ", "shipCategory": "petroleiro", "fleet": null, "timestamp": "2026-05-30 17:17:09.15588676 +0000 UTC", "heading": 188.0, "course": null, "isSaamBgra": false, "latitude": -22.78189, "longitude": -43.13241}, {"mmsi": "232053879", "shipName": "OCEANICASUB XVIII", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:32:57.475793906 +0000 UTC", "heading": 348.0, "course": null, "isSaamBgra": false, "latitude": -22.82438, "longitude": -43.09272}, {"mmsi": "710000691", "shipName": "SM GRUMARI", "shipCategory": "rebocador_servico", "fleet": null, "timestamp": "2026-05-30 17:24:00.879572929 +0000 UTC", "heading": 511.0, "course": null, "isSaamBgra": false, "latitude": -22.82384, "longitude": -43.11568}, {"mmsi": "710001991", "shipName": "JOSE GUILHEME VIII  ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:34:04.556682845 +0000 UTC", "heading": 511.0, "course": null, "isSaamBgra": false, "latitude": -22.87452, "longitude": -43.20249}, {"mmsi": "257940000", "shipName": "TANTALUS TIDE       ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:17:55.465697077 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.83109, "longitude": -43.09906}, {"mmsi": "232059264", "shipName": "OCEANICASUB XVII    ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:43:20.97526819 +0000 UTC", "heading": 346.0, "course": null, "isSaamBgra": false, "latitude": -22.88156, "longitude": -43.11684}, {"mmsi": "710005256", "shipName": "ROCHEDO DE SAO PAULO", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:44:47.071733448 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.84533, "longitude": -43.14501}, {"mmsi": "710007374", "shipName": "PORTO VALE XXXV", "shipCategory": "carga", "fleet": null, "timestamp": "2026-05-30 17:28:36.627639579 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.92243, "longitude": -43.11545}, {"mmsi": "710006265", "shipName": "OLIVIA BVT          ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 16:22:38.374034412 +0000 UTC", "heading": 236.0, "course": null, "isSaamBgra": false, "latitude": -22.83075, "longitude": -43.1285}, {"mmsi": "710131879", "shipName": "ENZO IV  ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:31:21.996476878 +0000 UTC", "heading": 303.0, "course": null, "isSaamBgra": false, "latitude": -22.91464, "longitude": -43.10025}, {"mmsi": "710004880", "shipName": "STARNAV PERSEUS     ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:21:05.529067231 +0000 UTC", "heading": 183.0, "course": null, "isSaamBgra": false, "latitude": -22.86026, "longitude": -43.16079}, {"mmsi": "710003120", "shipName": "Sem nome", "shipCategory": "pesca", "fleet": null, "timestamp": "2026-05-30 16:26:24.196936127 +0000 UTC", "heading": 511.0, "course": null, "isSaamBgra": false, "latitude": -22.81875, "longitude": -43.11007}, {"mmsi": "710027460", "shipName": "OCB XVIII           ", "shipCategory": "passageiros", "fleet": null, "timestamp": "2026-05-30 17:42:44.596447342 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.87407, "longitude": -43.12343}, {"mmsi": "345090016", "shipName": "HOS REMINGTON       ", "shipCategory": "rebocador_servico", "fleet": null, "timestamp": "2026-05-30 17:24:41.979979902 +0000 UTC", "heading": 210.0, "course": null, "isSaamBgra": false, "latitude": -22.87882, "longitude": -43.13267}, {"mmsi": "710012980", "shipName": "POSIDONIA ORION     ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:11:18.728091874 +0000 UTC", "heading": 511.0, "course": null, "isSaamBgra": false, "latitude": -22.82815, "longitude": -43.09835}, {"mmsi": "710347100", "shipName": "MERLIM              ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:45:32.282843975 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.86709, "longitude": -43.13156}, {"mmsi": "710032150", "shipName": "C TEMPORAL", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 16:27:02.792667875 +0000 UTC", "heading": 511.0, "course": null, "isSaamBgra": false, "latitude": -22.86749, "longitude": -43.11219}, {"mmsi": "710032680", "shipName": "OCEANICASUB III     ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:15:05.601874575 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.88106, "longitude": -43.11466}, {"mmsi": "232020131", "shipName": "STARLING TIDE       ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:00:52.013007991 +0000 UTC", "heading": 242.0, "course": null, "isSaamBgra": false, "latitude": -22.83131, "longitude": -43.09899}, {"mmsi": "710011210", "shipName": "NORMAND CARIOCA     ", "shipCategory": "carga", "fleet": null, "timestamp": "2026-05-30 17:31:21.355846544 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.85964, "longitude": -43.18274}, {"mmsi": "710009550", "shipName": "C NEBLINA", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 16:28:37.854534194 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.87002, "longitude": -43.11174}, {"mmsi": "710006726", "shipName": "DELTA COMMANDER     ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:28:51.291218313 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.85474, "longitude": -43.14522}, {"mmsi": "710000398", "shipName": "TS OURICADO         ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 16:30:39.740247974 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.87126, "longitude": -43.1126}, {"mmsi": "563007400", "shipName": "EPIC BALUAN         ", "shipCategory": "petroleiro", "fleet": null, "timestamp": "2026-05-30 16:32:02.694018365 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.80475, "longitude": -43.12484}, {"mmsi": "9131712", "shipName": "UAAAU", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:35:38.324233059 +0000 UTC", "heading": 71.0, "course": null, "isSaamBgra": false, "latitude": -22.94599, "longitude": -43.12973}, {"mmsi": "710002128", "shipName": "PINGUIM             ", "shipCategory": "carga", "fleet": null, "timestamp": "2026-05-30 17:44:52.772489407 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.85696, "longitude": -43.18258}, {"mmsi": "9118698", "shipName": "ONWA18698", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:38:03.928586762 +0000 UTC", "heading": 25.0, "course": null, "isSaamBgra": false, "latitude": -22.83543, "longitude": -43.12573}, {"mmsi": "9133735", "shipName": "Sem nome", "shipCategory": "pesca", "fleet": null, "timestamp": "2026-05-30 16:57:35.801208217 +0000 UTC", "heading": 288.0, "course": null, "isSaamBgra": false, "latitude": -22.86402, "longitude": -43.12637}, {"mmsi": "710005580", "shipName": "CBO BIANCA          ", "shipCategory": "rebocador_servico", "fleet": null, "timestamp": "2026-05-30 17:16:09.424885884 +0000 UTC", "heading": 309.0, "course": null, "isSaamBgra": false, "latitude": -22.85161, "longitude": -43.12961}, {"mmsi": "710014360", "shipName": "CD SAO MIGUEL III ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:44:51.796010637 +0000 UTC", "heading": 511.0, "course": null, "isSaamBgra": false, "latitude": -22.81328, "longitude": -43.15056}, {"mmsi": "710000224", "shipName": "GANDAIA 5", "shipCategory": "lazer", "fleet": null, "timestamp": "2026-05-30 17:21:17.529793594 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.91792, "longitude": -43.17074}, {"mmsi": "710022030", "shipName": "Sem nome", "shipCategory": "pesca", "fleet": null, "timestamp": "2026-05-30 16:35:09.393655334 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.82571, "longitude": -43.09534}, {"mmsi": "710004180", "shipName": "SANTOS SCOUT        ", "shipCategory": "pesca", "fleet": null, "timestamp": "2026-05-30 17:41:08.930188677 +0000 UTC", "heading": 158.0, "course": null, "isSaamBgra": false, "latitude": -22.94484, "longitude": -43.13474}, {"mmsi": "710004550", "shipName": "CBO ANITA           ", "shipCategory": "rebocador_servico", "fleet": null, "timestamp": "2026-05-30 16:35:46.063793821 +0000 UTC", "heading": 226.0, "course": null, "isSaamBgra": false, "latitude": -22.84151, "longitude": -43.13015}, {"mmsi": "710130157", "shipName": "BUIU", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:03:48.740813111 +0000 UTC", "heading": 121.0, "course": null, "isSaamBgra": false, "latitude": -22.87629, "longitude": -43.11677}, {"mmsi": "311000819", "shipName": "SEALOADER 2", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:25:55.550779818 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.84498, "longitude": -43.14998}, {"mmsi": "710010690", "shipName": "TS MARRENTO         ", "shipCategory": "pesca", "fleet": null, "timestamp": "2026-05-30 17:26:33.983747008 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.82617, "longitude": -43.09572}, {"mmsi": "710007954", "shipName": "MBT MEGHA", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:44:51.90413438 +0000 UTC", "heading": 511.0, "course": null, "isSaamBgra": false, "latitude": -22.85673, "longitude": -43.18246}, {"mmsi": "710005213", "shipName": "AH CAMOGLI          ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:18:47.944038428 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.86804, "longitude": -43.12093}, {"mmsi": "249335000", "shipName": "NORTH OCEAN 102", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:38:04.452136308 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.89214, "longitude": -43.19033}, {"mmsi": "710021570", "shipName": "BRAM HERO           ", "shipCategory": "carga", "fleet": null, "timestamp": "2026-05-30 17:13:40.015821614 +0000 UTC", "heading": 156.0, "course": null, "isSaamBgra": false, "latitude": -22.89104, "longitude": -43.21389}, {"mmsi": "538011318", "shipName": "JLV AMAZON", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:44:29.262591986 +0000 UTC", "heading": 239.0, "course": null, "isSaamBgra": false, "latitude": -22.82217, "longitude": -43.13525}, {"mmsi": "636014285", "shipName": "HORIZON THEANO      ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:10:01.59956735 +0000 UTC", "heading": 215.0, "course": null, "isSaamBgra": false, "latitude": -22.83297, "longitude": -43.14543}, {"mmsi": "710032180", "shipName": "STARNAV DELPHINUS   ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:37:18.206776012 +0000 UTC", "heading": 178.0, "course": null, "isSaamBgra": false, "latitude": -22.85285, "longitude": -43.1617}, {"mmsi": "900000000", "shipName": "Sem nome", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:41:14.168496522 +0000 UTC", "heading": 511.0, "course": null, "isSaamBgra": false, "latitude": -22.91101, "longitude": -43.1461}, {"mmsi": "345010073", "shipName": "HOS FIRE SERPENT    ", "shipCategory": "rebocador_servico", "fleet": null, "timestamp": "2026-05-30 17:09:47.608006224 +0000 UTC", "heading": 181.0, "course": null, "isSaamBgra": false, "latitude": -22.8611, "longitude": -43.17512}, {"mmsi": "710111223", "shipName": "MA 201", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:35:09.478509317 +0000 UTC", "heading": 511.0, "course": null, "isSaamBgra": false, "latitude": -22.86338, "longitude": -43.16113}, {"mmsi": "710004857", "shipName": "NORMAND POSEIDON", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:43:24.596111567 +0000 UTC", "heading": 336.0, "course": null, "isSaamBgra": false, "latitude": -22.88681, "longitude": -43.21589}, {"mmsi": "710015810", "shipName": "TS INCRIVEL", "shipCategory": "pesca", "fleet": null, "timestamp": "2026-05-30 17:43:21.369417415 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.90253, "longitude": -43.1412}, {"mmsi": "352112000", "shipName": "CALLIO              ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 16:49:40.993416059 +0000 UTC", "heading": 248.0, "course": null, "isSaamBgra": false, "latitude": -22.8919, "longitude": -43.19627}, {"mmsi": "636019295", "shipName": "BARU ANDES          ", "shipCategory": "carga", "fleet": null, "timestamp": "2026-05-30 16:58:10.038463294 +0000 UTC", "heading": 212.0, "course": null, "isSaamBgra": false, "latitude": -22.85095, "longitude": -43.13589}, {"mmsi": "710000359", "shipName": "M ILHAVO", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 16:50:51.296451187 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.82727, "longitude": -43.09615}, {"mmsi": "710030430", "shipName": "PILOT 13", "shipCategory": "rebocador_servico", "fleet": null, "timestamp": "2026-05-30 17:00:29.193172232 +0000 UTC", "heading": 511.0, "course": null, "isSaamBgra": false, "latitude": -22.878, "longitude": -43.19514}, {"mmsi": "370247000", "shipName": "NAVE SANTA MARIA    ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:21:13.237261021 +0000 UTC", "heading": 324.0, "course": null, "isSaamBgra": false, "latitude": -22.89858, "longitude": -43.17539}, {"mmsi": "710020930", "shipName": "HENRIQUE DIAS       ", "shipCategory": "petroleiro", "fleet": null, "timestamp": "2026-05-30 17:38:44.825168835 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.78725, "longitude": -43.12587}, {"mmsi": "710053672", "shipName": "ALTAMIR II", "shipCategory": "pesca", "fleet": null, "timestamp": "2026-05-30 17:25:58.344532471 +0000 UTC", "heading": 180.0, "course": null, "isSaamBgra": false, "latitude": -22.92472, "longitude": -43.13979}, {"mmsi": "710026890", "shipName": "MERLIM", "shipCategory": "rebocador_servico", "fleet": null, "timestamp": "2026-05-30 17:43:19.801361845 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.86675, "longitude": -43.13148}, {"mmsi": "710019191", "shipName": "GABRIELA 4", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 16:55:23.886737272 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.87752, "longitude": -43.12328}, {"mmsi": "710021990", "shipName": "PRIMAVERA XX A", "shipCategory": "pesca", "fleet": null, "timestamp": "2026-05-30 17:23:52.595162212 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.87234, "longitude": -43.11332}, {"mmsi": "710091749", "shipName": "Sem nome", "shipCategory": "pesca", "fleet": null, "timestamp": "2026-05-30 17:01:12.305350508 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.87248, "longitude": -43.1128}, {"mmsi": "710025720", "shipName": "BARU ATRIA", "shipCategory": "carga", "fleet": null, "timestamp": "2026-05-30 17:28:35.679776667 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.85164, "longitude": -43.18308}, {"mmsi": "710026880", "shipName": "C ITACURUCA         ", "shipCategory": "rebocador_servico", "fleet": null, "timestamp": "2026-05-30 17:44:25.932641672 +0000 UTC", "heading": 511.0, "course": null, "isSaamBgra": false, "latitude": -22.87387, "longitude": -43.12231}, {"mmsi": "710007281", "shipName": "SM PONTAL", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:02:32.517979066 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.89275, "longitude": -43.20129}, {"mmsi": "710231000", "shipName": "BRAM BOA VISTA      ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:25:10.915791782 +0000 UTC", "heading": 343.0, "course": null, "isSaamBgra": false, "latitude": -22.8813, "longitude": -43.11653}, {"mmsi": "9109677", "shipName": "ONWA9677", "shipCategory": "lazer", "fleet": null, "timestamp": "2026-05-30 17:09:49.077987091 +0000 UTC", "heading": 118.0, "course": null, "isSaamBgra": false, "latitude": -22.87763, "longitude": -43.12264}, {"mmsi": "710025480", "shipName": "BARU ANTARES        ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:38:45.500197262 +0000 UTC", "heading": 130.0, "course": null, "isSaamBgra": false, "latitude": -22.84782, "longitude": -43.19028}, {"mmsi": "710002514", "shipName": "Sem nome", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:07:04.968366582 +0000 UTC", "heading": 511.0, "course": null, "isSaamBgra": false, "latitude": -22.94634, "longitude": -43.17096}, {"mmsi": "220581000", "shipName": "MAERSK LANCER       ", "shipCategory": "rebocador_servico", "fleet": null, "timestamp": "2026-05-30 17:15:10.716495666 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.83806, "longitude": -43.13765}, {"mmsi": "538010941", "shipName": "SAFFEN ATHENA 2     ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:10:57.690105927 +0000 UTC", "heading": 185.0, "course": null, "isSaamBgra": false, "latitude": -22.85959, "longitude": -43.1667}, {"mmsi": "710515000", "shipName": "TAMANDARE", "shipCategory": "pesca", "fleet": null, "timestamp": "2026-05-30 17:14:20.434069169 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.86614, "longitude": -43.13688}, {"mmsi": "710005830", "shipName": "LOCAR V,,", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:14:20.460615814 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.82661, "longitude": -43.16782}, {"mmsi": "710006333", "shipName": "SECRETA RIO XIII", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:14:35.66401842 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.87574, "longitude": -43.11696}, {"mmsi": "303515000", "shipName": "ALLIE CHOUEST       ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:36:11.255344768 +0000 UTC", "heading": 117.0, "course": null, "isSaamBgra": false, "latitude": -22.86097, "longitude": -43.17877}, {"mmsi": "710012330", "shipName": "ITACA", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:16:32.145052302 +0000 UTC", "heading": 511.0, "course": null, "isSaamBgra": false, "latitude": -22.94669, "longitude": -43.17106}, {"mmsi": "710004749", "shipName": "Sem nome", "shipCategory": "lazer", "fleet": null, "timestamp": "2026-05-30 17:20:03.753440381 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.94888, "longitude": -43.17487}, {"mmsi": "710011250", "shipName": "LOCAR LH XIX", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:28:37.127830956 +0000 UTC", "heading": 217.0, "course": null, "isSaamBgra": false, "latitude": -22.82734, "longitude": -43.16666}, {"mmsi": "710024550", "shipName": "BRAM NATAL          ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:28:00.036684613 +0000 UTC", "heading": 224.0, "course": null, "isSaamBgra": false, "latitude": -22.85295, "longitude": -43.13795}, {"mmsi": "710028220", "shipName": "CAMPOS CONTENDER    ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:29:25.580553792 +0000 UTC", "heading": 204.0, "course": null, "isSaamBgra": false, "latitude": -22.85006, "longitude": -43.14917}, {"mmsi": "710400529", "shipName": "Sem nome", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:30:32.132024706 +0000 UTC", "heading": 49.0, "course": null, "isSaamBgra": false, "latitude": -22.87059, "longitude": -43.11179}, {"mmsi": "710019940", "shipName": "TS METIDO", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:39:51.407832562 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.82555, "longitude": -43.09543}, {"mmsi": "710004713", "shipName": "Sem nome", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:42:06.648291339 +0000 UTC", "heading": 511.0, "course": null, "isSaamBgra": false, "latitude": -22.93303, "longitude": -43.15137}], "lampSaaManeuver": true, "lampSaamInside": true, "lampSaaNames": ["BARU TESORO", "BR", "GAVEA", "STARNAV CENTAURUS", "COXON TIDE", "WS PEGASUS", "ASGAARD SOPHIA", "BRAM TITAN", "BJ BLUE MARLIN", "Sem nome", "BARU MUCURA", "CIDADE OURO PRETO", "ROBERT ADAMS", "GRANDE SAN PAOLO", "EXCALIBUR", "SEVEN SABIA", "HERCULES", "JACK EDWARDS"], "lampSaamNames": ["ARTHUR", "LANCELOT", "SAAM HOLANDA", "SAAM CHILE"], "emManobra": "—"}], "occupancy": [{"geofenceId": "8dfd253c-ccfa-42d3-b4f7-c07ee6ab808e", "name": " BASE BRASCO", "type": "base_rebocador", "fleetScope": "SAAM-BGRA", "vesselCount": 0, "insideVessels": []}, {"geofenceId": "2af02423-e209-459f-a887-813e69c5f7d4", "name": "PIER PRINCIPAL", "type": "berco", "fleetScope": "all", "vesselCount": 1, "insideVessels": [{"mmsi": "710003752", "shipName": "OLAVO BILAC         ", "shipCategory": "petroleiro", "fleet": null, "timestamp": "2026-05-30 16:40:17.219390472 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.81921, "longitude": -43.15315}]}, {"geofenceId": "f97ed8c0-867c-4f0c-ab4c-5fbd20578607", "name": "PIER SECUNDARIO ", "type": "berco", "fleetScope": "all", "vesselCount": 1, "insideVessels": [{"mmsi": "636023848", "shipName": "OCIOS IOANNIS       ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:17:55.528877937 +0000 UTC", "heading": 2.0, "course": null, "isSaamBgra": false, "latitude": -22.80534, "longitude": -43.15059}]}, {"geofenceId": "71438a61-6cb6-41cc-aa4e-a5332cf1b3b9", "name": "TERMINAL GNL", "type": "berco", "fleetScope": "all", "vesselCount": 1, "insideVessels": [{"mmsi": "538004501", "shipName": "EXPERIENCE          ", "shipCategory": "petroleiro", "fleet": null, "timestamp": "2026-05-30 17:17:09.15588676 +0000 UTC", "heading": 188.0, "course": null, "isSaamBgra": false, "latitude": -22.78189, "longitude": -43.13241}]}, {"geofenceId": "0e55d520-01a5-4d1d-b64b-bde132fd9906", "name": "TERMINAL MULTIRIO", "type": "berco", "fleetScope": "all", "vesselCount": 7, "insideVessels": [{"mmsi": "247091500", "shipName": "GRANDE SAN PAOLO    ", "shipCategory": "carga", "fleet": null, "timestamp": "2026-05-30 17:43:21.126314845 +0000 UTC", "heading": 221.0, "course": null, "isSaamBgra": false, "latitude": -22.88348, "longitude": -43.21242}, {"mmsi": "311001345", "shipName": "FELIXSTOWE          ", "shipCategory": "carga", "fleet": null, "timestamp": "2026-05-30 17:45:31.980226063 +0000 UTC", "heading": 140.0, "course": null, "isSaamBgra": false, "latitude": -22.8751, "longitude": -43.20111}, {"mmsi": "710021750", "shipName": "SAAM CHILE          ", "shipCategory": "rebocador_servico", "fleet": "SAAM-BGRA", "timestamp": "2026-05-30 17:44:09.660507355 +0000 UTC", "heading": 511.0, "course": null, "isSaamBgra": true, "latitude": -22.87591, "longitude": -43.20098}, {"mmsi": "255915794", "shipName": "BOCHEM SHANGHAI     ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:25:10.875846301 +0000 UTC", "heading": 41.0, "course": null, "isSaamBgra": false, "latitude": -22.87316, "longitude": -43.20279}, {"mmsi": "710001249", "shipName": "SAAM PARECI         ", "shipCategory": "rebocador_servico", "fleet": null, "timestamp": "2026-05-30 17:42:39.048042309 +0000 UTC", "heading": 511.0, "course": null, "isSaamBgra": false, "latitude": -22.87372, "longitude": -43.20224}, {"mmsi": "636025521", "shipName": "ITHACA              ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:25:15.211334632 +0000 UTC", "heading": 221.0, "course": null, "isSaamBgra": false, "latitude": -22.87957, "longitude": -43.20868}, {"mmsi": "710001991", "shipName": "JOSE GUILHEME VIII  ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:34:04.556682845 +0000 UTC", "heading": 511.0, "course": null, "isSaamBgra": false, "latitude": -22.87452, "longitude": -43.20249}]}, {"geofenceId": "9af8cc13-9c5b-4603-aa25-1aba2610df48", "name": "ARMAZEM 09 -12", "type": "berco", "fleetScope": "all", "vesselCount": 2, "insideVessels": [{"mmsi": "352112000", "shipName": "CALLIO              ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 16:49:40.993416059 +0000 UTC", "heading": 248.0, "course": null, "isSaamBgra": false, "latitude": -22.8919, "longitude": -43.19627}, {"mmsi": "710007281", "shipName": "SM PONTAL", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:02:32.517979066 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.89275, "longitude": -43.20129}]}, {"geofenceId": "a9371335-35a4-4773-9679-b5028c44c4df", "name": "ARMAZEM 01 -08", "type": "berco", "fleetScope": "all", "vesselCount": 3, "insideVessels": [{"mmsi": "710018340", "shipName": "WS PEGASUS          ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:45:47.980323437 +0000 UTC", "heading": 511.0, "course": null, "isSaamBgra": false, "latitude": -22.89186, "longitude": -43.19142}, {"mmsi": "710000391", "shipName": "WEZEN               ", "shipCategory": "rebocador_servico", "fleet": null, "timestamp": "2026-05-30 17:42:05.499988946 +0000 UTC", "heading": 511.0, "course": null, "isSaamBgra": false, "latitude": -22.89188, "longitude": -43.19147}, {"mmsi": "249335000", "shipName": "NORTH OCEAN 102", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:38:04.452136308 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.89214, "longitude": -43.19033}]}, {"geofenceId": "bg-interno-persistente", "name": "Baia de Guanabara Interno", "type": "polygon", "fleetScope": "all", "vesselCount": 194, "insideVessels": [{"mmsi": "710027960", "shipName": "BARU TESORO", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:44:04.326699189 +0000 UTC", "heading": 235.0, "course": null, "isSaamBgra": false, "latitude": -22.84816, "longitude": -43.18592}, {"mmsi": "710441586", "shipName": "BR", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 16:04:36.537837666 +0000 UTC", "heading": 225.0, "course": null, "isSaamBgra": false, "latitude": -22.87979, "longitude": -43.12008}, {"mmsi": "710102030", "shipName": "GAVEA", "shipCategory": "passageiros", "fleet": null, "timestamp": "2026-05-30 17:45:43.899839691 +0000 UTC", "heading": 511.0, "course": null, "isSaamBgra": false, "latitude": -22.90264, "longitude": -43.17103}, {"mmsi": "710238000", "shipName": "STARNAV CENTAURUS   ", "shipCategory": "carga", "fleet": null, "timestamp": "2026-05-30 17:45:27.180173675 +0000 UTC", "heading": 197.0, "course": null, "isSaamBgra": false, "latitude": -22.86195, "longitude": -43.16401}, {"mmsi": "710003612", "shipName": "COXON TIDE          ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:44:47.800234172 +0000 UTC", "heading": 272.0, "course": null, "isSaamBgra": false, "latitude": -22.8488, "longitude": -43.13297}, {"mmsi": "710018340", "shipName": "WS PEGASUS          ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:45:47.980323437 +0000 UTC", "heading": 511.0, "course": null, "isSaamBgra": false, "latitude": -22.89186, "longitude": -43.19142}, {"mmsi": "710027720", "shipName": "ASGAARD SOPHIA", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:44:09.675089924 +0000 UTC", "heading": 157.0, "course": null, "isSaamBgra": false, "latitude": -22.83171, "longitude": -43.0983}, {"mmsi": "710019330", "shipName": "BRAM TITAN          ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:13:39.122518005 +0000 UTC", "heading": 225.0, "course": null, "isSaamBgra": false, "latitude": -22.84443, "longitude": -43.14013}, {"mmsi": "710000294", "shipName": "BJ BLUE MARLIN", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:29:18.232604025 +0000 UTC", "heading": 67.0, "course": null, "isSaamBgra": false, "latitude": -22.88007, "longitude": -43.11949}, {"mmsi": "710028360", "shipName": "Sem nome", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 16:16:16.570755371 +0000 UTC", "heading": 217.0, "course": null, "isSaamBgra": false, "latitude": -22.95162, "longitude": -43.14917}, {"mmsi": "710021560", "shipName": "BARU MUCURA         ", "shipCategory": "carga", "fleet": null, "timestamp": "2026-05-30 17:45:27.716298867 +0000 UTC", "heading": 260.0, "course": null, "isSaamBgra": false, "latitude": -22.85211, "longitude": -43.18837}, {"mmsi": "710025710", "shipName": "CIDADE OURO PRETO   ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:43:20.686337593 +0000 UTC", "heading": 253.0, "course": null, "isSaamBgra": false, "latitude": -22.82012, "longitude": -43.11603}, {"mmsi": "303150000", "shipName": "ROBERT ADAMS        ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 16:23:16.432368993 +0000 UTC", "heading": 148.0, "course": null, "isSaamBgra": false, "latitude": -22.8579, "longitude": -43.18765}, {"mmsi": "247091500", "shipName": "GRANDE SAN PAOLO    ", "shipCategory": "carga", "fleet": null, "timestamp": "2026-05-30 17:43:21.126314845 +0000 UTC", "heading": 221.0, "course": null, "isSaamBgra": false, "latitude": -22.88348, "longitude": -43.21242}, {"mmsi": "710108765", "shipName": "Sem nome", "shipCategory": "pesca", "fleet": null, "timestamp": "2026-05-30 17:30:04.353984269 +0000 UTC", "heading": 349.0, "course": null, "isSaamBgra": false, "latitude": -22.87732, "longitude": -43.12516}, {"mmsi": "710026910", "shipName": "EXCALIBUR           ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:11:40.237780939 +0000 UTC", "heading": 511.0, "course": null, "isSaamBgra": false, "latitude": -22.86763, "longitude": -43.11217}, {"mmsi": "710000180", "shipName": "SEVEN SABIA         ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 16:23:55.573937247 +0000 UTC", "heading": 511.0, "course": null, "isSaamBgra": false, "latitude": -22.87369, "longitude": -43.12142}, {"mmsi": "710000009", "shipName": "HERCULES            ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:44:46.252062886 +0000 UTC", "heading": 511.0, "course": null, "isSaamBgra": false, "latitude": -22.89203, "longitude": -43.19148}, {"mmsi": "710007494", "shipName": "JACK EDWARDS        ", "shipCategory": "pesca", "fleet": null, "timestamp": "2026-05-30 17:44:52.808068973 +0000 UTC", "heading": 142.0, "course": null, "isSaamBgra": false, "latitude": -22.85801, "longitude": -43.17687}, {"mmsi": "710018820", "shipName": "C SEPETIBA", "shipCategory": "carga", "fleet": null, "timestamp": "2026-05-30 17:44:51.74043466 +0000 UTC", "heading": 247.0, "course": null, "isSaamBgra": false, "latitude": -22.8738, "longitude": -43.12247}, {"mmsi": "710015310", "shipName": "ARTHUR              ", "shipCategory": "rebocador_servico", "fleet": "SAAM-BGRA", "timestamp": "2026-05-30 17:44:46.407963804 +0000 UTC", "heading": 511.0, "course": null, "isSaamBgra": true, "latitude": -22.83785, "longitude": -43.15297}, {"mmsi": "710006132", "shipName": "Sem nome", "shipCategory": "rebocador_servico", "fleet": null, "timestamp": "2026-05-30 16:59:57.930502377 +0000 UTC", "heading": 511.0, "course": null, "isSaamBgra": false, "latitude": -22.81983, "longitude": -43.11574}, {"mmsi": "413289780", "shipName": "HANG JUN 4019       ", "shipCategory": "pesca", "fleet": null, "timestamp": "2026-05-30 17:45:18.715220915 +0000 UTC", "heading": 127.0, "course": null, "isSaamBgra": false, "latitude": -22.86791, "longitude": -43.20765}, {"mmsi": "710003050", "shipName": "ASSO VENTISETTE     ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:45:08.64893073 +0000 UTC", "heading": 286.0, "course": null, "isSaamBgra": false, "latitude": -22.83564, "longitude": -43.14137}, {"mmsi": "710014391", "shipName": "E-241", "shipCategory": "petroleiro", "fleet": null, "timestamp": "2026-05-30 17:41:07.660398787 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.82322, "longitude": -43.11455}, {"mmsi": "710020960", "shipName": "NEVES V", "shipCategory": "passageiros", "fleet": null, "timestamp": "2026-05-30 17:39:51.527848778 +0000 UTC", "heading": 511.0, "course": null, "isSaamBgra": false, "latitude": -22.89636, "longitude": -43.16027}, {"mmsi": "710025850", "shipName": "CBO OCEANA          ", "shipCategory": "carga", "fleet": null, "timestamp": "2026-05-30 17:43:21.017016446 +0000 UTC", "heading": 157.0, "course": null, "isSaamBgra": false, "latitude": -22.89453, "longitude": -43.21223}, {"mmsi": "710102046", "shipName": "CHARITAS", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 16:57:31.317664907 +0000 UTC", "heading": 511.0, "course": null, "isSaamBgra": false, "latitude": -22.89311, "longitude": -43.12466}, {"mmsi": "710999976", "shipName": "ACE OPTIMUS         ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:45:48.160064483 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.82252, "longitude": -43.0896}, {"mmsi": "710019710", "shipName": "URCA III", "shipCategory": "passageiros", "fleet": null, "timestamp": "2026-05-30 17:02:39.100436564 +0000 UTC", "heading": 511.0, "course": null, "isSaamBgra": false, "latitude": -22.76731, "longitude": -43.10091}, {"mmsi": "710016030", "shipName": "LANCELOT            ", "shipCategory": "rebocador_servico", "fleet": "SAAM-BGRA", "timestamp": "2026-05-30 17:43:49.661281428 +0000 UTC", "heading": 511.0, "course": null, "isSaamBgra": true, "latitude": -22.84885, "longitude": -43.15488}, {"mmsi": "710400522", "shipName": "SKANDI_CARLA", "shipCategory": "carga", "fleet": null, "timestamp": "2026-05-30 17:43:19.804531636 +0000 UTC", "heading": 511.0, "course": null, "isSaamBgra": false, "latitude": -22.86655, "longitude": -43.13006}, {"mmsi": "710004485", "shipName": "ANGRA DOS REIS", "shipCategory": "passageiros", "fleet": null, "timestamp": "2026-05-30 17:43:59.612275349 +0000 UTC", "heading": 511.0, "course": null, "isSaamBgra": false, "latitude": -22.87907, "longitude": -43.12055}, {"mmsi": "710002967", "shipName": "RS MACAE", "shipCategory": "rebocador_servico", "fleet": null, "timestamp": "2026-05-30 17:43:49.476263656 +0000 UTC", "heading": 511.0, "course": null, "isSaamBgra": false, "latitude": -22.87433, "longitude": -43.11316}, {"mmsi": "311001345", "shipName": "FELIXSTOWE          ", "shipCategory": "carga", "fleet": null, "timestamp": "2026-05-30 17:45:31.980226063 +0000 UTC", "heading": 140.0, "course": null, "isSaamBgra": false, "latitude": -22.8751, "longitude": -43.20111}, {"mmsi": "710011000", "shipName": "SEASTAR VIRTUS      ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 16:19:14.241506146 +0000 UTC", "heading": 511.0, "course": null, "isSaamBgra": false, "latitude": -22.89199, "longitude": -43.21352}, {"mmsi": "710024720", "shipName": "BRAM BUCK           ", "shipCategory": "carga", "fleet": null, "timestamp": "2026-05-30 17:43:24.731783843 +0000 UTC", "heading": 237.0, "course": null, "isSaamBgra": false, "latitude": -22.84149, "longitude": -43.14729}, {"mmsi": "710102038", "shipName": "INGA II", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:43:25.636735754 +0000 UTC", "heading": 511.0, "course": null, "isSaamBgra": false, "latitude": -22.90217, "longitude": -43.17176}, {"mmsi": "538007877", "shipName": "SEACOR NILE         ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:22:20.719695507 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.83907, "longitude": -43.12969}, {"mmsi": "710000880", "shipName": "TS VALENTE          ", "shipCategory": "pesca", "fleet": null, "timestamp": "2026-05-30 17:41:58.932130787 +0000 UTC", "heading": 282.0, "course": null, "isSaamBgra": false, "latitude": -22.90217, "longitude": -43.14167}, {"mmsi": "710003682", "shipName": "PROF. LUIZ CARLOS   ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:39:26.007023122 +0000 UTC", "heading": 309.0, "course": null, "isSaamBgra": false, "latitude": -22.9167, "longitude": -43.17004}, {"mmsi": "351859000", "shipName": "SEWARD JOHNSON      ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:40:17.465304603 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.86985, "longitude": -43.12183}, {"mmsi": "710260000", "shipName": "AMBIPAR PLACIDO     ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:42:06.916041442 +0000 UTC", "heading": 289.0, "course": null, "isSaamBgra": false, "latitude": -22.87401, "longitude": -43.12254}, {"mmsi": "710001593", "shipName": "SAAM HOLANDA", "shipCategory": "rebocador_servico", "fleet": "SAAM-BGRA", "timestamp": "2026-05-30 17:44:51.956335467 +0000 UTC", "heading": 511.0, "course": null, "isSaamBgra": true, "latitude": -22.84348, "longitude": -43.15534}, {"mmsi": "710001550", "shipName": "PARCEL DAS TIMBEBAS ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:31:53.127990848 +0000 UTC", "heading": 197.0, "course": null, "isSaamBgra": false, "latitude": -22.852, "longitude": -43.1419}, {"mmsi": "710012730", "shipName": "AVANTI SHADOW", "shipCategory": "lazer", "fleet": null, "timestamp": "2026-05-30 17:38:04.04864959 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.79343, "longitude": -43.15551}, {"mmsi": "710025950", "shipName": "MANDRIAO            ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:41:09.06590916 +0000 UTC", "heading": 90.0, "course": null, "isSaamBgra": false, "latitude": -22.8777, "longitude": -43.12196}, {"mmsi": "710021750", "shipName": "SAAM CHILE          ", "shipCategory": "rebocador_servico", "fleet": "SAAM-BGRA", "timestamp": "2026-05-30 17:44:09.660507355 +0000 UTC", "heading": 511.0, "course": null, "isSaamBgra": true, "latitude": -22.87591, "longitude": -43.20098}, {"mmsi": "710030930", "shipName": "HARPIA", "shipCategory": "passageiros", "fleet": null, "timestamp": "2026-05-30 17:44:47.635835488 +0000 UTC", "heading": 511.0, "course": null, "isSaamBgra": false, "latitude": -22.89523, "longitude": -43.13677}, {"mmsi": "710006364", "shipName": "SPRINGBOK           ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:44:04.165280936 +0000 UTC", "heading": 337.0, "course": null, "isSaamBgra": false, "latitude": -22.8883, "longitude": -43.21526}, {"mmsi": "710810002", "shipName": "LUIZ REBELO II      ", "shipCategory": "petroleiro", "fleet": null, "timestamp": "2026-05-30 17:42:00.609294774 +0000 UTC", "heading": 511.0, "course": null, "isSaamBgra": false, "latitude": -22.82753, "longitude": -43.15339}, {"mmsi": "730154277", "shipName": "SAN ANDRES IV       ", "shipCategory": "petroleiro", "fleet": null, "timestamp": "2026-05-30 16:08:44.177449262 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.84734, "longitude": -43.14178}, {"mmsi": "636014716", "shipName": "MARLIN              ", "shipCategory": "petroleiro", "fleet": null, "timestamp": "2026-05-30 17:41:13.956053928 +0000 UTC", "heading": 359.0, "course": null, "isSaamBgra": false, "latitude": -22.85268, "longitude": -43.15495}, {"mmsi": "636023848", "shipName": "OCIOS IOANNIS       ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:17:55.528877937 +0000 UTC", "heading": 2.0, "course": null, "isSaamBgra": false, "latitude": -22.80534, "longitude": -43.15059}, {"mmsi": "338896000", "shipName": "JUAN C              ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:06:22.483147791 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.84731, "longitude": -43.13864}, {"mmsi": "710000391", "shipName": "WEZEN               ", "shipCategory": "rebocador_servico", "fleet": null, "timestamp": "2026-05-30 17:42:05.499988946 +0000 UTC", "heading": 511.0, "course": null, "isSaamBgra": false, "latitude": -22.89188, "longitude": -43.19147}, {"mmsi": "710031280", "shipName": "BRAVANTE II         ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:39:40.719870414 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.84963, "longitude": -43.14887}, {"mmsi": "710006681", "shipName": "DUFOUR 41", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:19:13.992310443 +0000 UTC", "heading": 226.0, "course": null, "isSaamBgra": false, "latitude": -22.9285, "longitude": -43.15227}, {"mmsi": "413381580", "shipName": "HANG JUN 6009       ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:45:32.177671848 +0000 UTC", "heading": 271.0, "course": null, "isSaamBgra": false, "latitude": -22.86393, "longitude": -43.17248}, {"mmsi": "710050000", "shipName": "YVAN BARRETTO       ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:44:32.412186029 +0000 UTC", "heading": 293.0, "course": null, "isSaamBgra": false, "latitude": -22.83976, "longitude": -43.12689}, {"mmsi": "710002240", "shipName": "C DIAMANTE", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:28:44.224061778 +0000 UTC", "heading": 511.0, "course": null, "isSaamBgra": false, "latitude": -22.87413, "longitude": -43.1221}, {"mmsi": "710004920", "shipName": "CD SERRA DA ESTRELA", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:43:25.71619944 +0000 UTC", "heading": 511.0, "course": null, "isSaamBgra": false, "latitude": -22.82021, "longitude": -43.11608}, {"mmsi": "710005647", "shipName": "DRATEC XXII", "shipCategory": "carga", "fleet": null, "timestamp": "2026-05-30 16:43:55.247819595 +0000 UTC", "heading": 47.0, "course": null, "isSaamBgra": false, "latitude": -22.87086, "longitude": -43.20481}, {"mmsi": "710004827", "shipName": "PILOT 20", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:44:47.660349092 +0000 UTC", "heading": 511.0, "course": null, "isSaamBgra": false, "latitude": -22.8862, "longitude": -43.14396}, {"mmsi": "710004633", "shipName": "NEW TROVAO", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 16:35:23.891943138 +0000 UTC", "heading": 511.0, "course": null, "isSaamBgra": false, "latitude": -22.87418, "longitude": -43.12158}, {"mmsi": "710004861", "shipName": "PARCEL DOS MEROS    ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:33:06.700088017 +0000 UTC", "heading": 255.0, "course": null, "isSaamBgra": false, "latitude": -22.87687, "longitude": -43.13079}, {"mmsi": "710012550", "shipName": "SAAM PATAXO         ", "shipCategory": "rebocador_servico", "fleet": null, "timestamp": "2026-05-30 17:43:26.487929306 +0000 UTC", "heading": 511.0, "course": null, "isSaamBgra": false, "latitude": -22.84848, "longitude": -43.15553}, {"mmsi": "710000114", "shipName": "C VENDAVAL", "shipCategory": "rebocador_servico", "fleet": null, "timestamp": "2026-05-30 16:40:23.819156786 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.86919, "longitude": -43.11185}, {"mmsi": "9124952", "shipName": "DEUS E BOM", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:25:46.322334103 +0000 UTC", "heading": 314.0, "course": null, "isSaamBgra": false, "latitude": -22.92366, "longitude": -43.11631}, {"mmsi": "220580000", "shipName": "MAERSK LAUNCHER     ", "shipCategory": "pesca", "fleet": null, "timestamp": "2026-05-30 17:27:21.81439441 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.84141, "longitude": -43.14403}, {"mmsi": "710008137", "shipName": "COSTA DO FUTURO     ", "shipCategory": "petroleiro", "fleet": null, "timestamp": "2026-05-30 17:25:49.779693822 +0000 UTC", "heading": 244.0, "course": null, "isSaamBgra": false, "latitude": -22.83285, "longitude": -43.13506}, {"mmsi": "710003146", "shipName": "PILOT 14", "shipCategory": "rebocador_servico", "fleet": null, "timestamp": "2026-05-30 17:23:04.53974311 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.89205, "longitude": -43.19255}, {"mmsi": "710016770", "shipName": "CBO IPANEMA         ", "shipCategory": "carga", "fleet": null, "timestamp": "2026-05-30 17:32:26.2477428 +0000 UTC", "heading": 113.0, "course": null, "isSaamBgra": false, "latitude": -22.87288, "longitude": -43.12472}, {"mmsi": "710004737", "shipName": "SABLE               ", "shipCategory": "pesca", "fleet": null, "timestamp": "2026-05-30 17:42:27.903214274 +0000 UTC", "heading": 156.0, "course": null, "isSaamBgra": false, "latitude": -22.89367, "longitude": -43.21263}, {"mmsi": "710028160", "shipName": "DRATEC XXI", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:06:27.130979909 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.87083, "longitude": -43.20466}, {"mmsi": "710027550", "shipName": "C TURMALINA", "shipCategory": "rebocador_servico", "fleet": null, "timestamp": "2026-05-30 17:22:27.382495155 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.874, "longitude": -43.12209}, {"mmsi": "220577000", "shipName": "MAERSK LEADER       ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:18:31.768065455 +0000 UTC", "heading": 232.0, "course": null, "isSaamBgra": false, "latitude": -22.838, "longitude": -43.14789}, {"mmsi": "710400615", "shipName": "SEACOR DEMERARA     ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:45:31.902728555 +0000 UTC", "heading": 180.0, "course": null, "isSaamBgra": false, "latitude": -22.85517, "longitude": -43.16734}, {"mmsi": "710810003", "shipName": "LUIZ REBELO III     ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:09:12.088147347 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.87778, "longitude": -43.14718}, {"mmsi": "710335000", "shipName": "STARNAV REGULUS     ", "shipCategory": "carga", "fleet": null, "timestamp": "2026-05-30 17:04:04.781347765 +0000 UTC", "heading": 181.0, "course": null, "isSaamBgra": false, "latitude": -22.85614, "longitude": -43.16144}, {"mmsi": "255915794", "shipName": "BOCHEM SHANGHAI     ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:25:10.875846301 +0000 UTC", "heading": 41.0, "course": null, "isSaamBgra": false, "latitude": -22.87316, "longitude": -43.20279}, {"mmsi": "710027710", "shipName": "FERNANDO DE NORONHA ", "shipCategory": "rebocador_servico", "fleet": null, "timestamp": "2026-05-30 17:13:13.555979206 +0000 UTC", "heading": 165.0, "course": null, "isSaamBgra": false, "latitude": -22.82551, "longitude": -43.09221}, {"mmsi": "710004871", "shipName": "PEROA X", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:37:22.581004639 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.81009, "longitude": -43.16318}, {"mmsi": "366017000", "shipName": "ROGER WHITE         ", "shipCategory": "carga", "fleet": null, "timestamp": "2026-05-30 17:22:43.419704258 +0000 UTC", "heading": 247.0, "course": null, "isSaamBgra": false, "latitude": -22.84178, "longitude": -43.1342}, {"mmsi": "352002481", "shipName": "BARU SIERRA NEVADA  ", "shipCategory": "carga", "fleet": null, "timestamp": "2026-05-30 17:25:55.841168794 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.84843, "longitude": -43.13028}, {"mmsi": "710005681", "shipName": "KUDU                ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 16:37:56.339744938 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.89785, "longitude": -43.17422}, {"mmsi": "345050079", "shipName": "LAGUNERO            ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:39:30.319039776 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.86078, "longitude": -43.1284}, {"mmsi": "710020980", "shipName": "ZEUS", "shipCategory": "passageiros", "fleet": null, "timestamp": "2026-05-30 17:42:44.320233269 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.87852, "longitude": -43.12087}, {"mmsi": "710000490", "shipName": "ILHA DO CABO FRIO   ", "shipCategory": "carga", "fleet": null, "timestamp": "2026-05-30 16:19:54.124715559 +0000 UTC", "heading": 216.0, "course": null, "isSaamBgra": false, "latitude": -22.85009, "longitude": -43.14549}, {"mmsi": "710001249", "shipName": "SAAM PARECI         ", "shipCategory": "rebocador_servico", "fleet": null, "timestamp": "2026-05-30 17:42:39.048042309 +0000 UTC", "heading": 511.0, "course": null, "isSaamBgra": false, "latitude": -22.87372, "longitude": -43.20224}, {"mmsi": "710008540", "shipName": "BRAM BELEM          ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:10:56.692553902 +0000 UTC", "heading": 181.0, "course": null, "isSaamBgra": false, "latitude": -22.86348, "longitude": -43.16107}, {"mmsi": "9131024", "shipName": "HERDEIRO DE DEUS", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:34:58.792076988 +0000 UTC", "heading": 239.0, "course": null, "isSaamBgra": false, "latitude": -22.87762, "longitude": -43.12268}, {"mmsi": "710032310", "shipName": "C TEMPESTADE        ", "shipCategory": "rebocador_servico", "fleet": null, "timestamp": "2026-05-30 17:38:02.2548208 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.87408, "longitude": -43.12167}, {"mmsi": "205464000", "shipName": "MINERAL NIMBUS      ", "shipCategory": "carga", "fleet": null, "timestamp": "2026-05-30 17:37:16.990849555 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.87779, "longitude": -43.14687}, {"mmsi": "710028950", "shipName": "PARCEL DO BADEJO    ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 16:14:43.763457333 +0000 UTC", "heading": 65.0, "course": null, "isSaamBgra": false, "latitude": -22.8809, "longitude": -43.12011}, {"mmsi": "710033590", "shipName": "MARINA 1            ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:39:51.260917102 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.82801, "longitude": -43.16339}, {"mmsi": "710007514", "shipName": "RS CORREGO DO OURO", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:21:31.636425923 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.92263, "longitude": -43.11745}, {"mmsi": "9118357", "shipName": "ONWA18357", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 16:45:37.520958496 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.93045, "longitude": -43.11683}, {"mmsi": "636025521", "shipName": "ITHACA              ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:25:15.211334632 +0000 UTC", "heading": 221.0, "course": null, "isSaamBgra": false, "latitude": -22.87957, "longitude": -43.20868}, {"mmsi": "710003752", "shipName": "OLAVO BILAC         ", "shipCategory": "petroleiro", "fleet": null, "timestamp": "2026-05-30 16:40:17.219390472 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.81921, "longitude": -43.15315}, {"mmsi": "710009970", "shipName": "TS ASSANHADO", "shipCategory": "rebocador_servico", "fleet": null, "timestamp": "2026-05-30 17:40:16.281464954 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.81725, "longitude": -43.11131}, {"mmsi": "710015100", "shipName": "CNA 151", "shipCategory": "petroleiro", "fleet": null, "timestamp": "2026-05-30 17:07:01.589888458 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.82452, "longitude": -43.0933}, {"mmsi": "719240218", "shipName": "M ZAG", "shipCategory": "rebocador_servico", "fleet": null, "timestamp": "2026-05-30 17:30:42.408630278 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.86293, "longitude": -43.1614}, {"mmsi": "710001100", "shipName": "SINGRAR             ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:14:52.541759916 +0000 UTC", "heading": 243.0, "course": null, "isSaamBgra": false, "latitude": -22.84453, "longitude": -43.13145}, {"mmsi": "710028210", "shipName": "CBO ISABELLA", "shipCategory": "rebocador_servico", "fleet": null, "timestamp": "2026-05-30 17:41:08.691349919 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.84198, "longitude": -43.13687}, {"mmsi": "563167300", "shipName": "VIALLI              ", "shipCategory": "petroleiro", "fleet": null, "timestamp": "2026-05-30 17:00:27.681405806 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.82226, "longitude": -43.14189}, {"mmsi": "710000286", "shipName": "TS FISSURADO        ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:30:47.023951151 +0000 UTC", "heading": 511.0, "course": null, "isSaamBgra": false, "latitude": -22.90223, "longitude": -43.1408}, {"mmsi": "710004958", "shipName": "DELFOS 2            ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:28:07.950997168 +0000 UTC", "heading": 511.0, "course": null, "isSaamBgra": false, "latitude": -22.93359, "longitude": -43.10617}, {"mmsi": "710007318", "shipName": "BRAM RIO            ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:01:07.064010344 +0000 UTC", "heading": 167.0, "course": null, "isSaamBgra": false, "latitude": -22.86039, "longitude": -43.17009}, {"mmsi": "257794000", "shipName": "NORMAND NAVIGATOR   ", "shipCategory": "carga", "fleet": null, "timestamp": "2026-05-30 17:44:46.036674564 +0000 UTC", "heading": 240.0, "course": null, "isSaamBgra": false, "latitude": -22.82808, "longitude": -43.13489}, {"mmsi": "710007898", "shipName": "ALMAR ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:15:05.85099683 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.91869, "longitude": -43.17076}, {"mmsi": "710023860", "shipName": "GNL 1008", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:31:29.047769101 +0000 UTC", "heading": 511.0, "course": null, "isSaamBgra": false, "latitude": -22.83082, "longitude": -43.09887}, {"mmsi": "710039000", "shipName": "GEONISIO BARROSO    ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 16:37:54.821330418 +0000 UTC", "heading": 66.0, "course": null, "isSaamBgra": false, "latitude": -22.88039, "longitude": -43.11922}, {"mmsi": "538004501", "shipName": "EXPERIENCE          ", "shipCategory": "petroleiro", "fleet": null, "timestamp": "2026-05-30 17:17:09.15588676 +0000 UTC", "heading": 188.0, "course": null, "isSaamBgra": false, "latitude": -22.78189, "longitude": -43.13241}, {"mmsi": "232053879", "shipName": "OCEANICASUB XVIII", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:32:57.475793906 +0000 UTC", "heading": 348.0, "course": null, "isSaamBgra": false, "latitude": -22.82438, "longitude": -43.09272}, {"mmsi": "710000691", "shipName": "SM GRUMARI", "shipCategory": "rebocador_servico", "fleet": null, "timestamp": "2026-05-30 17:24:00.879572929 +0000 UTC", "heading": 511.0, "course": null, "isSaamBgra": false, "latitude": -22.82384, "longitude": -43.11568}, {"mmsi": "710001991", "shipName": "JOSE GUILHEME VIII  ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:34:04.556682845 +0000 UTC", "heading": 511.0, "course": null, "isSaamBgra": false, "latitude": -22.87452, "longitude": -43.20249}, {"mmsi": "257940000", "shipName": "TANTALUS TIDE       ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:17:55.465697077 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.83109, "longitude": -43.09906}, {"mmsi": "232059264", "shipName": "OCEANICASUB XVII    ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:43:20.97526819 +0000 UTC", "heading": 346.0, "course": null, "isSaamBgra": false, "latitude": -22.88156, "longitude": -43.11684}, {"mmsi": "710005256", "shipName": "ROCHEDO DE SAO PAULO", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:44:47.071733448 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.84533, "longitude": -43.14501}, {"mmsi": "710007374", "shipName": "PORTO VALE XXXV", "shipCategory": "carga", "fleet": null, "timestamp": "2026-05-30 17:28:36.627639579 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.92243, "longitude": -43.11545}, {"mmsi": "710006265", "shipName": "OLIVIA BVT          ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 16:22:38.374034412 +0000 UTC", "heading": 236.0, "course": null, "isSaamBgra": false, "latitude": -22.83075, "longitude": -43.1285}, {"mmsi": "710131879", "shipName": "ENZO IV  ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:31:21.996476878 +0000 UTC", "heading": 303.0, "course": null, "isSaamBgra": false, "latitude": -22.91464, "longitude": -43.10025}, {"mmsi": "710004880", "shipName": "STARNAV PERSEUS     ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:21:05.529067231 +0000 UTC", "heading": 183.0, "course": null, "isSaamBgra": false, "latitude": -22.86026, "longitude": -43.16079}, {"mmsi": "710003120", "shipName": "Sem nome", "shipCategory": "pesca", "fleet": null, "timestamp": "2026-05-30 16:26:24.196936127 +0000 UTC", "heading": 511.0, "course": null, "isSaamBgra": false, "latitude": -22.81875, "longitude": -43.11007}, {"mmsi": "710027460", "shipName": "OCB XVIII           ", "shipCategory": "passageiros", "fleet": null, "timestamp": "2026-05-30 17:42:44.596447342 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.87407, "longitude": -43.12343}, {"mmsi": "345090016", "shipName": "HOS REMINGTON       ", "shipCategory": "rebocador_servico", "fleet": null, "timestamp": "2026-05-30 17:24:41.979979902 +0000 UTC", "heading": 210.0, "course": null, "isSaamBgra": false, "latitude": -22.87882, "longitude": -43.13267}, {"mmsi": "710012980", "shipName": "POSIDONIA ORION     ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:11:18.728091874 +0000 UTC", "heading": 511.0, "course": null, "isSaamBgra": false, "latitude": -22.82815, "longitude": -43.09835}, {"mmsi": "710347100", "shipName": "MERLIM              ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:45:32.282843975 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.86709, "longitude": -43.13156}, {"mmsi": "710032150", "shipName": "C TEMPORAL", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 16:27:02.792667875 +0000 UTC", "heading": 511.0, "course": null, "isSaamBgra": false, "latitude": -22.86749, "longitude": -43.11219}, {"mmsi": "710032680", "shipName": "OCEANICASUB III     ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:15:05.601874575 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.88106, "longitude": -43.11466}, {"mmsi": "232020131", "shipName": "STARLING TIDE       ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:00:52.013007991 +0000 UTC", "heading": 242.0, "course": null, "isSaamBgra": false, "latitude": -22.83131, "longitude": -43.09899}, {"mmsi": "710011210", "shipName": "NORMAND CARIOCA     ", "shipCategory": "carga", "fleet": null, "timestamp": "2026-05-30 17:31:21.355846544 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.85964, "longitude": -43.18274}, {"mmsi": "710009550", "shipName": "C NEBLINA", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 16:28:37.854534194 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.87002, "longitude": -43.11174}, {"mmsi": "710006726", "shipName": "DELTA COMMANDER     ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:28:51.291218313 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.85474, "longitude": -43.14522}, {"mmsi": "710000398", "shipName": "TS OURICADO         ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 16:30:39.740247974 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.87126, "longitude": -43.1126}, {"mmsi": "563007400", "shipName": "EPIC BALUAN         ", "shipCategory": "petroleiro", "fleet": null, "timestamp": "2026-05-30 16:32:02.694018365 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.80475, "longitude": -43.12484}, {"mmsi": "9131712", "shipName": "UAAAU", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:35:38.324233059 +0000 UTC", "heading": 71.0, "course": null, "isSaamBgra": false, "latitude": -22.94599, "longitude": -43.12973}, {"mmsi": "710002128", "shipName": "PINGUIM             ", "shipCategory": "carga", "fleet": null, "timestamp": "2026-05-30 17:44:52.772489407 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.85696, "longitude": -43.18258}, {"mmsi": "9118698", "shipName": "ONWA18698", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:38:03.928586762 +0000 UTC", "heading": 25.0, "course": null, "isSaamBgra": false, "latitude": -22.83543, "longitude": -43.12573}, {"mmsi": "9133735", "shipName": "Sem nome", "shipCategory": "pesca", "fleet": null, "timestamp": "2026-05-30 16:57:35.801208217 +0000 UTC", "heading": 288.0, "course": null, "isSaamBgra": false, "latitude": -22.86402, "longitude": -43.12637}, {"mmsi": "710005580", "shipName": "CBO BIANCA          ", "shipCategory": "rebocador_servico", "fleet": null, "timestamp": "2026-05-30 17:16:09.424885884 +0000 UTC", "heading": 309.0, "course": null, "isSaamBgra": false, "latitude": -22.85161, "longitude": -43.12961}, {"mmsi": "710014360", "shipName": "CD SAO MIGUEL III ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:44:51.796010637 +0000 UTC", "heading": 511.0, "course": null, "isSaamBgra": false, "latitude": -22.81328, "longitude": -43.15056}, {"mmsi": "710000224", "shipName": "GANDAIA 5", "shipCategory": "lazer", "fleet": null, "timestamp": "2026-05-30 17:21:17.529793594 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.91792, "longitude": -43.17074}, {"mmsi": "710022030", "shipName": "Sem nome", "shipCategory": "pesca", "fleet": null, "timestamp": "2026-05-30 16:35:09.393655334 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.82571, "longitude": -43.09534}, {"mmsi": "710004180", "shipName": "SANTOS SCOUT        ", "shipCategory": "pesca", "fleet": null, "timestamp": "2026-05-30 17:41:08.930188677 +0000 UTC", "heading": 158.0, "course": null, "isSaamBgra": false, "latitude": -22.94484, "longitude": -43.13474}, {"mmsi": "710004550", "shipName": "CBO ANITA           ", "shipCategory": "rebocador_servico", "fleet": null, "timestamp": "2026-05-30 16:35:46.063793821 +0000 UTC", "heading": 226.0, "course": null, "isSaamBgra": false, "latitude": -22.84151, "longitude": -43.13015}, {"mmsi": "710130157", "shipName": "BUIU", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:03:48.740813111 +0000 UTC", "heading": 121.0, "course": null, "isSaamBgra": false, "latitude": -22.87629, "longitude": -43.11677}, {"mmsi": "311000819", "shipName": "SEALOADER 2", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:25:55.550779818 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.84498, "longitude": -43.14998}, {"mmsi": "710010690", "shipName": "TS MARRENTO         ", "shipCategory": "pesca", "fleet": null, "timestamp": "2026-05-30 17:26:33.983747008 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.82617, "longitude": -43.09572}, {"mmsi": "710007954", "shipName": "MBT MEGHA", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:44:51.90413438 +0000 UTC", "heading": 511.0, "course": null, "isSaamBgra": false, "latitude": -22.85673, "longitude": -43.18246}, {"mmsi": "710005213", "shipName": "AH CAMOGLI          ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:18:47.944038428 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.86804, "longitude": -43.12093}, {"mmsi": "249335000", "shipName": "NORTH OCEAN 102", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:38:04.452136308 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.89214, "longitude": -43.19033}, {"mmsi": "710021570", "shipName": "BRAM HERO           ", "shipCategory": "carga", "fleet": null, "timestamp": "2026-05-30 17:13:40.015821614 +0000 UTC", "heading": 156.0, "course": null, "isSaamBgra": false, "latitude": -22.89104, "longitude": -43.21389}, {"mmsi": "538011318", "shipName": "JLV AMAZON", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:44:29.262591986 +0000 UTC", "heading": 239.0, "course": null, "isSaamBgra": false, "latitude": -22.82217, "longitude": -43.13525}, {"mmsi": "636014285", "shipName": "HORIZON THEANO      ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:10:01.59956735 +0000 UTC", "heading": 215.0, "course": null, "isSaamBgra": false, "latitude": -22.83297, "longitude": -43.14543}, {"mmsi": "710032180", "shipName": "STARNAV DELPHINUS   ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:37:18.206776012 +0000 UTC", "heading": 178.0, "course": null, "isSaamBgra": false, "latitude": -22.85285, "longitude": -43.1617}, {"mmsi": "900000000", "shipName": "Sem nome", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:41:14.168496522 +0000 UTC", "heading": 511.0, "course": null, "isSaamBgra": false, "latitude": -22.91101, "longitude": -43.1461}, {"mmsi": "345010073", "shipName": "HOS FIRE SERPENT    ", "shipCategory": "rebocador_servico", "fleet": null, "timestamp": "2026-05-30 17:09:47.608006224 +0000 UTC", "heading": 181.0, "course": null, "isSaamBgra": false, "latitude": -22.8611, "longitude": -43.17512}, {"mmsi": "710111223", "shipName": "MA 201", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:35:09.478509317 +0000 UTC", "heading": 511.0, "course": null, "isSaamBgra": false, "latitude": -22.86338, "longitude": -43.16113}, {"mmsi": "710004857", "shipName": "NORMAND POSEIDON", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:43:24.596111567 +0000 UTC", "heading": 336.0, "course": null, "isSaamBgra": false, "latitude": -22.88681, "longitude": -43.21589}, {"mmsi": "710015810", "shipName": "TS INCRIVEL", "shipCategory": "pesca", "fleet": null, "timestamp": "2026-05-30 17:43:21.369417415 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.90253, "longitude": -43.1412}, {"mmsi": "352112000", "shipName": "CALLIO              ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 16:49:40.993416059 +0000 UTC", "heading": 248.0, "course": null, "isSaamBgra": false, "latitude": -22.8919, "longitude": -43.19627}, {"mmsi": "636019295", "shipName": "BARU ANDES          ", "shipCategory": "carga", "fleet": null, "timestamp": "2026-05-30 16:58:10.038463294 +0000 UTC", "heading": 212.0, "course": null, "isSaamBgra": false, "latitude": -22.85095, "longitude": -43.13589}, {"mmsi": "710000359", "shipName": "M ILHAVO", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 16:50:51.296451187 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.82727, "longitude": -43.09615}, {"mmsi": "710030430", "shipName": "PILOT 13", "shipCategory": "rebocador_servico", "fleet": null, "timestamp": "2026-05-30 17:00:29.193172232 +0000 UTC", "heading": 511.0, "course": null, "isSaamBgra": false, "latitude": -22.878, "longitude": -43.19514}, {"mmsi": "370247000", "shipName": "NAVE SANTA MARIA    ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:21:13.237261021 +0000 UTC", "heading": 324.0, "course": null, "isSaamBgra": false, "latitude": -22.89858, "longitude": -43.17539}, {"mmsi": "710020930", "shipName": "HENRIQUE DIAS       ", "shipCategory": "petroleiro", "fleet": null, "timestamp": "2026-05-30 17:38:44.825168835 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.78725, "longitude": -43.12587}, {"mmsi": "710053672", "shipName": "ALTAMIR II", "shipCategory": "pesca", "fleet": null, "timestamp": "2026-05-30 17:25:58.344532471 +0000 UTC", "heading": 180.0, "course": null, "isSaamBgra": false, "latitude": -22.92472, "longitude": -43.13979}, {"mmsi": "710026890", "shipName": "MERLIM", "shipCategory": "rebocador_servico", "fleet": null, "timestamp": "2026-05-30 17:43:19.801361845 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.86675, "longitude": -43.13148}, {"mmsi": "710019191", "shipName": "GABRIELA 4", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 16:55:23.886737272 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.87752, "longitude": -43.12328}, {"mmsi": "710021990", "shipName": "PRIMAVERA XX A", "shipCategory": "pesca", "fleet": null, "timestamp": "2026-05-30 17:23:52.595162212 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.87234, "longitude": -43.11332}, {"mmsi": "710091749", "shipName": "Sem nome", "shipCategory": "pesca", "fleet": null, "timestamp": "2026-05-30 17:01:12.305350508 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.87248, "longitude": -43.1128}, {"mmsi": "710025720", "shipName": "BARU ATRIA", "shipCategory": "carga", "fleet": null, "timestamp": "2026-05-30 17:28:35.679776667 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.85164, "longitude": -43.18308}, {"mmsi": "710026880", "shipName": "C ITACURUCA         ", "shipCategory": "rebocador_servico", "fleet": null, "timestamp": "2026-05-30 17:44:25.932641672 +0000 UTC", "heading": 511.0, "course": null, "isSaamBgra": false, "latitude": -22.87387, "longitude": -43.12231}, {"mmsi": "710007281", "shipName": "SM PONTAL", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:02:32.517979066 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.89275, "longitude": -43.20129}, {"mmsi": "710231000", "shipName": "BRAM BOA VISTA      ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:25:10.915791782 +0000 UTC", "heading": 343.0, "course": null, "isSaamBgra": false, "latitude": -22.8813, "longitude": -43.11653}, {"mmsi": "9109677", "shipName": "ONWA9677", "shipCategory": "lazer", "fleet": null, "timestamp": "2026-05-30 17:09:49.077987091 +0000 UTC", "heading": 118.0, "course": null, "isSaamBgra": false, "latitude": -22.87763, "longitude": -43.12264}, {"mmsi": "710025480", "shipName": "BARU ANTARES        ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:38:45.500197262 +0000 UTC", "heading": 130.0, "course": null, "isSaamBgra": false, "latitude": -22.84782, "longitude": -43.19028}, {"mmsi": "710002514", "shipName": "Sem nome", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:07:04.968366582 +0000 UTC", "heading": 511.0, "course": null, "isSaamBgra": false, "latitude": -22.94634, "longitude": -43.17096}, {"mmsi": "220581000", "shipName": "MAERSK LANCER       ", "shipCategory": "rebocador_servico", "fleet": null, "timestamp": "2026-05-30 17:15:10.716495666 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.83806, "longitude": -43.13765}, {"mmsi": "538010941", "shipName": "SAFFEN ATHENA 2     ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:10:57.690105927 +0000 UTC", "heading": 185.0, "course": null, "isSaamBgra": false, "latitude": -22.85959, "longitude": -43.1667}, {"mmsi": "710515000", "shipName": "TAMANDARE", "shipCategory": "pesca", "fleet": null, "timestamp": "2026-05-30 17:14:20.434069169 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.86614, "longitude": -43.13688}, {"mmsi": "710005830", "shipName": "LOCAR V,,", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:14:20.460615814 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.82661, "longitude": -43.16782}, {"mmsi": "710006333", "shipName": "SECRETA RIO XIII", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:14:35.66401842 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.87574, "longitude": -43.11696}, {"mmsi": "303515000", "shipName": "ALLIE CHOUEST       ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:36:11.255344768 +0000 UTC", "heading": 117.0, "course": null, "isSaamBgra": false, "latitude": -22.86097, "longitude": -43.17877}, {"mmsi": "710012330", "shipName": "ITACA", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:16:32.145052302 +0000 UTC", "heading": 511.0, "course": null, "isSaamBgra": false, "latitude": -22.94669, "longitude": -43.17106}, {"mmsi": "710004749", "shipName": "Sem nome", "shipCategory": "lazer", "fleet": null, "timestamp": "2026-05-30 17:20:03.753440381 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.94888, "longitude": -43.17487}, {"mmsi": "710011250", "shipName": "LOCAR LH XIX", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:28:37.127830956 +0000 UTC", "heading": 217.0, "course": null, "isSaamBgra": false, "latitude": -22.82734, "longitude": -43.16666}, {"mmsi": "710024550", "shipName": "BRAM NATAL          ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:28:00.036684613 +0000 UTC", "heading": 224.0, "course": null, "isSaamBgra": false, "latitude": -22.85295, "longitude": -43.13795}, {"mmsi": "710028220", "shipName": "CAMPOS CONTENDER    ", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:29:25.580553792 +0000 UTC", "heading": 204.0, "course": null, "isSaamBgra": false, "latitude": -22.85006, "longitude": -43.14917}, {"mmsi": "710400529", "shipName": "Sem nome", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:30:32.132024706 +0000 UTC", "heading": 49.0, "course": null, "isSaamBgra": false, "latitude": -22.87059, "longitude": -43.11179}, {"mmsi": "710019940", "shipName": "TS METIDO", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:39:51.407832562 +0000 UTC", "heading": 0.0, "course": null, "isSaamBgra": false, "latitude": -22.82555, "longitude": -43.09543}, {"mmsi": "710004713", "shipName": "Sem nome", "shipCategory": "outros", "fleet": null, "timestamp": "2026-05-30 17:42:06.648291339 +0000 UTC", "heading": 511.0, "course": null, "isSaamBgra": false, "latitude": -22.93303, "longitude": -43.15137}]}], "tugStats": {"byMmsi": {"710015310": {"abbr": "AT", "name": "ARTHUR              ", "totalSeconds": 0.0, "totalManeuvers": 0, "totalNauticalMiles": 4.314120695251886, "byGeofence": {}}, "710001593": {"abbr": "HL", "name": "SAAM HOLANDA", "totalSeconds": 0.0, "totalManeuvers": 0, "totalNauticalMiles": 4.0355188738094725, "byGeofence": {}}, "710021750": {"abbr": "CH", "name": "SAAM CHILE          ", "totalSeconds": 0.0, "totalManeuvers": 0, "totalNauticalMiles": 1.2070601492708422, "byGeofence": {}}, "710016030": {"abbr": "LT", "name": "LANCELOT            ", "totalSeconds": 0.0, "totalManeuvers": 0, "totalNauticalMiles": 5.461322632109021, "byGeofence": {}}}, "updatedAt": "2026-05-30T17:43:21.507176"}, "tugChart": [{"mmsi": "710020280", "abbr": "AR", "name": "", "totalManeuvers": 0, "totalHours": 0.0, "totalNauticalMiles": 0.0}, {"mmsi": "710000348", "abbr": "IT", "name": "", "totalManeuvers": 0, "totalHours": 0.0, "totalNauticalMiles": 0.0}, {"mmsi": "710021750", "abbr": "CH", "name": "SAAM CHILE          ", "totalManeuvers": 0, "totalHours": 0.0, "totalNauticalMiles": 1.21}, {"mmsi": "710001593", "abbr": "HL", "name": "SAAM HOLANDA", "totalManeuvers": 0, "totalHours": 0.0, "totalNauticalMiles": 4.04}, {"mmsi": "710016030", "abbr": "LT", "name": "LANCELOT            ", "totalManeuvers": 0, "totalHours": 0.0, "totalNauticalMiles": 5.46}, {"mmsi": "710015310", "abbr": "AT", "name": "ARTHUR              ", "totalManeuvers": 0, "totalHours": 0.0, "totalNauticalMiles": 4.31}], "saaManeuvers": [{"id": "4134f717-9d6c-4b27-a862-36114cc80dbd", "vesselName": "ITHACA", "berthName": "TECONT3", "empRb": "SAA", "status": "BE", "note": "Fonte: praticagem-rj.com.br (programação pública)", "source": "praticagem", "recordedAt": "2026-05-30T16:08:01.824406", "pob": "30/05 12:00", "cal": "6,60", "loa": "172,00", "dwt": "24732", "m": "E", "boca": "27,54", "gt": "18491"}, {"id": "345b8869-614e-4846-88b4-42c86382eb2b", "vesselName": "FELIXSTOWE", "berthName": "TECONT1", "empRb": "SAA", "status": "TECONT1", "note": "Fonte: praticagem-rj.com.br (programação pública)", "source": "praticagem", "recordedAt": "2026-05-30T16:08:01.824406", "pob": "30/05 14:00", "cal": "12,60", "loa": "259,80", "dwt": "50790", "m": "S", "boca": "32,30", "gt": "39941"}, {"id": "dfc508ff-66bb-4cf1-959b-ca5d795214cc", "vesselName": "MARLIN", "berthName": "PS-2", "empRb": "SAA", "status": "PS-2", "note": "Fonte: praticagem-rj.com.br (programação pública)", "source": "praticagem", "recordedAt": "2026-05-30T16:08:01.824406", "pob": "30/05 14:00", "cal": "6,50", "loa": "144,22", "dwt": "17043", "m": "E", "boca": "23,03", "gt": "11931"}, {"id": "af645650-8db4-4e72-9e22-000571360f0c", "vesselName": "DHALKUT", "berthName": "VISITA S", "empRb": "N/A", "status": "VISITA S", "note": "Fonte: praticagem-rj.com.br (programação pública)", "source": "praticagem", "recordedAt": "2026-05-30T16:08:01.824406", "pob": "30/05 15:00", "cal": "11,00", "loa": "336,00", "dwt": "299997", "m": "E", "boca": "60,05", "gt": "156452"}, {"id": "13ad9aba-b5a6-4ee6-a456-2404fdcb82d8", "vesselName": "NORMAND NAVIGATOR", "berthName": "WPT 63", "empRb": "N/A", "status": "WPT 63", "note": "Fonte: praticagem-rj.com.br (programação pública)", "source": "praticagem", "recordedAt": "2026-05-30T16:08:01.824406", "pob": "30/05 15:00", "cal": "6,80", "loa": "142,60", "dwt": "9200", "m": "S", "boca": "25,00", "gt": "15008"}, {"id": "b9032b34-6d81-4e7c-9765-df7d51980b56", "vesselName": "DUSSELDORF EXPRESS", "berthName": "TECONT1", "empRb": "SAA", "status": "BE", "note": "Fonte: praticagem-rj.com.br (programação pública)", "source": "praticagem", "recordedAt": "2026-05-30T16:08:01.824406", "pob": "30/05 16:00", "cal": "10,40", "loa": "293,97", "dwt": "66525", "m": "E", "boca": "32,30", "gt": "53523"}, {"id": "99474cfa-8b87-436c-8bfc-fe2c09454ad9", "vesselName": "LOG-IN DISCOVERY", "berthName": "TECONT2", "empRb": "WIL", "status": "BE", "note": "Fonte: praticagem-rj.com.br (programação pública)", "source": "praticagem", "recordedAt": "2026-05-30T16:08:01.824406", "pob": "30/05 17:30", "cal": "10,60", "loa": "208,85", "dwt": "34022", "m": "E", "boca": "30,08", "gt": "26374"}, {"id": "a37cdd22-be6e-473a-8a2c-33b5dc39a8c0", "vesselName": "GRANDE SAN PAOLO", "berthName": "TECONT5", "empRb": "WIL", "status": "BE", "note": "Fonte: praticagem-rj.com.br (programação pública)", "source": "praticagem", "recordedAt": "2026-05-30T16:08:01.824406", "pob": "30/05 19:30", "cal": "9,50", "loa": "213,88", "dwt": "26169", "m": "S", "boca": "32,28", "gt": "57000"}, {"id": "5ff77c17-29da-4d89-b9b5-72ebad9fbf3f", "vesselName": "SARUS CRANE", "berthName": "TOLEO", "empRb": "WIL", "status": "BB", "note": "Fonte: praticagem-rj.com.br (programação pública)", "source": "praticagem", "recordedAt": "2026-05-30T16:08:01.824406", "pob": "30/05 23:30", "cal": "6,70", "loa": "145,53", "dwt": "19772", "m": "E", "boca": "23,73", "gt": "11821"}, {"id": "422a1c72-5a4c-4868-a5aa-4cce590b221b", "vesselName": "ITHACA", "berthName": "TECONT3", "empRb": "SAA", "status": "BE", "note": "Fonte: praticagem-rj.com.br (programação pública)", "source": "praticagem", "recordedAt": "2026-05-30T16:08:01.824406", "pob": "31/05 04:30", "cal": "8,50", "loa": "172,00", "dwt": "24732", "m": "S", "boca": "27,54", "gt": "18491"}, {"id": "6f80c0a4-12ac-4952-91c4-79d3dfdcdf73", "vesselName": "DUSSELDORF EXPRESS", "berthName": "TECONT1", "empRb": "SAA", "status": "BE", "note": "Fonte: praticagem-rj.com.br (programação pública)", "source": "praticagem", "recordedAt": "2026-05-30T16:08:01.824406", "pob": "31/05 05:30", "cal": "10,00", "loa": "293,97", "dwt": "66525", "m": "S", "boca": "32,30", "gt": "53523"}, {"id": "49314466-770c-4021-ac3c-3f867a9bd115", "vesselName": "BOCHEM SHANGHAI", "berthName": "TECONTPROLONG", "empRb": "CAM", "status": "BE", "note": "Fonte: praticagem-rj.com.br (programação pública)", "source": "praticagem", "recordedAt": "2026-05-30T16:08:01.824406", "pob": "31/05 06:30", "cal": "10,00", "loa": "158,98", "dwt": "25998", "m": "S", "boca": "27,00", "gt": "17023"}, {"id": "9587d58d-d93f-4454-a6a6-63f48bed7727", "vesselName": "EPIC BALUAN", "berthName": "I COMPRIDA", "empRb": "SAA", "status": "BB", "note": "Fonte: praticagem-rj.com.br (programação pública)", "source": "praticagem", "recordedAt": "2026-05-30T16:08:01.824406", "pob": "31/05 07:00", "cal": "4,50", "loa": "113,08", "dwt": "7187", "m": "S", "boca": "19,03", "gt": "6220"}, {"id": "cf5f067e-aecd-41e0-a80e-c5833efcb5ee", "vesselName": "MERCOSUL FORTALEZA", "berthName": "TECONT1", "empRb": "SAA", "status": "BE", "note": "Fonte: praticagem-rj.com.br (programação pública)", "source": "praticagem", "recordedAt": "2026-05-30T16:08:01.824406", "pob": "31/05 08:30", "cal": "12,00", "loa": "185,97", "dwt": "36923", "m": "E", "boca": "34,88", "gt": "31370"}, {"id": "f54be1d6-298e-4bcc-930c-e93dfab77147", "vesselName": "RIO GRANDE", "berthName": "PP-1", "empRb": "SAA", "status": "PP-1", "note": "Fonte: praticagem-rj.com.br (programação pública)", "source": "praticagem", "recordedAt": "2026-05-30T16:08:01.824406", "pob": "31/05 09:00", "cal": "14,90", "loa": "248,00", "dwt": "105224", "m": "E", "boca": "42,03", "gt": "62753"}, {"id": "c960d30c-b856-4b4e-be7e-a811007bebc4", "vesselName": "ASL ARK", "berthName": "TERMTRIGO", "empRb": "CAM", "status": "BB", "note": "Fonte: praticagem-rj.com.br (programação pública)", "source": "praticagem", "recordedAt": "2026-05-30T16:08:01.824406", "pob": "31/05 10:00", "cal": "9,10", "loa": "179,99", "dwt": "39783", "m": "E", "boca": "32,00", "gt": "24727"}, {"id": "81eed173-9676-4a17-8cfc-c0955fa6ddcb", "vesselName": "CAPE AKRITAS", "berthName": "TECONT3", "empRb": "WIL", "status": "BE", "note": "Fonte: praticagem-rj.com.br (programação pública)", "source": "praticagem", "recordedAt": "2026-05-30T16:08:01.824406", "pob": "31/05 10:30", "cal": "13,60", "loa": "330,00", "dwt": "134869", "m": "E", "boca": "48,34", "gt": "112836"}, {"id": "6e844246-b457-43fc-a360-3c9353d0a92b", "vesselName": "OLAVO BILAC", "berthName": "PP-2 │ WPT 81", "empRb": "SAA", "status": "PP-2 │ WPT 81", "note": "Fonte: praticagem-rj.com.br (programação pública)", "source": "praticagem", "recordedAt": "2026-05-30T16:08:01.824406", "pob": "31/05 12:00", "cal": "12,50", "loa": "248,97", "dwt": "114481", "m": "M", "boca": "43,84", "gt": "61426"}, {"id": "d3c64db2-966c-478d-aae3-3f5a35b4b382", "vesselName": "GOODWOOD", "berthName": "TECONT5", "empRb": "WIL", "status": "BE", "note": "Fonte: praticagem-rj.com.br (programação pública)", "source": "praticagem", "recordedAt": "2026-05-30T16:08:01.824406", "pob": "31/05 12:30", "cal": "9,00", "loa": "199,97", "dwt": "18770", "m": "E", "boca": "32,26", "gt": "59516"}, {"id": "46757f93-5868-4847-add0-9d24ba898271", "vesselName": "LOG-IN DISCOVERY", "berthName": "TECONT2", "empRb": "WIL", "status": "BE", "note": "Fonte: praticagem-rj.com.br (programação pública)", "source": "praticagem", "recordedAt": "2026-05-30T16:08:01.824406", "pob": "31/05 14:30", "cal": "9,00", "loa": "208,85", "dwt": "34022", "m": "S", "boca": "30,08", "gt": "26374"}, {"id": "84e9ce52-bc6b-4463-b5ed-d1912347d397", "vesselName": "MARLIN", "berthName": "PS-2", "empRb": "SAA", "status": "PS-2", "note": "Fonte: praticagem-rj.com.br (programação pública)", "source": "praticagem", "recordedAt": "2026-05-30T16:08:01.824406", "pob": "31/05 15:00", "cal": "6,50", "loa": "144,22", "dwt": "17043", "m": "S", "boca": "23,03", "gt": "11931"}, {"id": "80fec843-b961-4c64-bac1-a90785c40124", "vesselName": "OCIOS IOANNIS", "berthName": "PS-1", "empRb": "SAA", "status": "PS-1", "note": "Fonte: praticagem-rj.com.br (programação pública)", "source": "praticagem", "recordedAt": "2026-05-30T16:08:01.824406", "pob": "31/05 17:00", "cal": "7,70", "loa": "183,06", "dwt": "49997", "m": "S", "boca": "32,23", "gt": "28160"}, {"id": "529eff5e-e398-4cb4-9fae-a43c5ee59e18", "vesselName": "MSC MAXINE", "berthName": "TECONT2", "empRb": "WIL", "status": "BE", "note": "Fonte: praticagem-rj.com.br (programação pública)", "source": "praticagem", "recordedAt": "2026-05-30T16:08:01.824406", "pob": "31/05 19:00", "cal": "10,80", "loa": "299,84", "dwt": "131034", "m": "E", "boca": "48,33", "gt": "95514"}, {"id": "1f2d0546-f12c-4248-852f-fafca3809855", "vesselName": "SARUS CRANE", "berthName": "TOLEO │ TECON RIO", "empRb": "WIL", "status": "BB", "note": "Fonte: praticagem-rj.com.br (programação pública)", "source": "praticagem", "recordedAt": "2026-05-30T16:08:01.824406", "pob": "31/05 23:30", "cal": "6,50", "loa": "145,53", "dwt": "19772", "m": "S", "boca": "23,73", "gt": "11821"}, {"id": "8d3d29cb-55c3-4e40-8dd6-7d3a5de5d99a", "vesselName": "GOODWOOD", "berthName": "TECONT5", "empRb": "WIL", "status": "BE", "note": "Fonte: praticagem-rj.com.br (programação pública)", "source": "praticagem", "recordedAt": "2026-05-30T16:08:01.824406", "pob": "01/06 04:30", "cal": "9,00", "loa": "199,97", "dwt": "18770", "m": "S", "boca": "32,26", "gt": "59516"}, {"id": "2acb0c05-ca53-4b12-9dae-ebc00442faac", "vesselName": "MERCOSUL FORTALEZA", "berthName": "TECONT1", "empRb": "SAA", "status": "BE", "note": "Fonte: praticagem-rj.com.br (programação pública)", "source": "praticagem", "recordedAt": "2026-05-30T16:08:01.824406", "pob": "01/06 05:30", "cal": "11,90", "loa": "185,97", "dwt": "36923", "m": "S", "boca": "34,88", "gt": "31370"}, {"id": "275f99c4-fe02-45de-a748-82fb6cf0b9cd", "vesselName": "ANITA GARIBALDI", "berthName": "PP-2", "empRb": "SAA", "status": "PP-2", "note": "Fonte: praticagem-rj.com.br (programação pública)", "source": "praticagem", "recordedAt": "2026-05-30T16:08:01.824406", "pob": "01/06 06:00", "cal": "8,50", "loa": "228,00", "dwt": "72786", "m": "E", "boca": "40,00", "gt": "44797"}, {"id": "b6355ab1-4b34-435e-89f4-ff1bcf0b05a4", "vesselName": "CAPE AKRITAS", "berthName": "TECONT3", "empRb": "WIL", "status": "BB", "note": "Fonte: praticagem-rj.com.br (programação pública)", "source": "praticagem", "recordedAt": "2026-05-30T16:08:01.824406", "pob": "01/06 07:30", "cal": "12,60", "loa": "330,00", "dwt": "134869", "m": "S", "boca": "48,34", "gt": "112836"}, {"id": "dc490f0e-b1d2-42ca-9f48-562dd31f1165", "vesselName": "MSC MAXINE", "berthName": "TECONT2", "empRb": "WIL", "status": "TECONT2", "note": "Fonte: praticagem-rj.com.br (programação pública)", "source": "praticagem", "recordedAt": "2026-05-30T16:08:01.824406", "pob": "01/06 11:00", "cal": "10,80", "loa": "299,84", "dwt": "131034", "m": "S", "boca": "48,33", "gt": "95514"}, {"id": "9ac0c7d3-42bf-4b1e-a7f9-3d8bdb59f72d", "vesselName": "SANTA LORETTA", "berthName": "TECONT3", "empRb": "WIL", "status": "BE", "note": "Fonte: praticagem-rj.com.br (programação pública)", "source": "praticagem", "recordedAt": "2026-05-30T16:08:01.824406", "pob": "01/06 13:00", "cal": "10,80", "loa": "336,67", "dwt": "133086", "m": "E", "boca": "45,63", "gt": "107849"}, {"id": "3e1b7a53-10c4-4a8a-80f6-3c2facfb2274", "vesselName": "MSC INSA", "berthName": "TECONT2", "empRb": "WIL", "status": "BE", "note": "Fonte: praticagem-rj.com.br (programação pública)", "source": "praticagem", "recordedAt": "2026-05-30T16:08:01.824406", "pob": "01/06 15:00", "cal": "13,80", "loa": "335,00", "dwt": "139641", "m": "E", "boca": "45,86", "gt": "106463"}, {"id": "8ee48bab-d7cc-41ab-91c4-befd03068e4b", "vesselName": "COSCO SHIPPING PERU", "berthName": "TECONTPROLONG", "empRb": "CAM", "status": "BE", "note": "Fonte: praticagem-rj.com.br (programação pública)", "source": "praticagem", "recordedAt": "2026-05-30T16:08:01.824406", "pob": "02/06 08:00", "cal": "14,40", "loa": "335,90", "dwt": "144700", "m": "E", "boca": "51,00", "gt": "146329"}, {"id": "56e85619-b691-42c7-94de-bbf867153422", "vesselName": "SANTA LORETTA", "berthName": "TECONT3", "empRb": "WIL", "status": "BE", "note": "Fonte: praticagem-rj.com.br (programação pública)", "source": "praticagem", "recordedAt": "2026-05-30T16:08:01.824406", "pob": "02/06 10:00", "cal": "12,60", "loa": "336,67", "dwt": "133086", "m": "S", "boca": "45,63", "gt": "107849"}, {"id": "1385b51d-bc5e-46c3-bd9e-091d933fdc71", "vesselName": "MSC INSA", "berthName": "TECONT2", "empRb": "WIL", "status": "BE", "note": "Fonte: praticagem-rj.com.br (programação pública)", "source": "praticagem", "recordedAt": "2026-05-30T16:08:01.824406", "pob": "02/06 11:00", "cal": "12,60", "loa": "335,00", "dwt": "139641", "m": "S", "boca": "45,86", "gt": "106463"}, {"id": "84e928b7-e544-4f0a-ac41-b7057fe16904", "vesselName": "COSCO SHIPPING PERU", "berthName": "TECONTPROLONG", "empRb": "CAM", "status": "BE", "note": "Fonte: praticagem-rj.com.br (programação pública)", "source": "praticagem", "recordedAt": "2026-05-30T16:08:01.824406", "pob": "03/06 06:30", "cal": "14,00", "loa": "335,90", "dwt": "144700", "m": "S", "boca": "51,00", "gt": "146329"}, {"id": "e78aae71-f780-4eb1-847f-36f9dfc4e4cf", "vesselName": "COSCO SHIPPING DANUBE", "berthName": "TECONTPROLONG", "empRb": "CAM", "status": "BE", "note": "Fonte: praticagem-rj.com.br (programação pública)", "source": "praticagem", "recordedAt": "2026-05-30T16:08:01.824406", "pob": "03/06 14:00", "cal": "13,50", "loa": "299,90", "dwt": "111290", "m": "E", "boca": "48,33", "gt": "94623"}, {"id": "e9020cec-9dfe-4fc6-abb9-dede536e01d0", "vesselName": "HYUNDAI TOKYO", "berthName": "TECONT3", "empRb": "SAA", "status": "BE", "note": "Fonte: praticagem-rj.com.br (programação pública)", "source": "praticagem", "recordedAt": "2026-05-30T16:08:01.824406", "pob": "03/06 16:00", "cal": "13,50", "loa": "303,83", "dwt": "80059", "m": "E", "boca": "40,00", "gt": "74651"}, {"id": "818646e9-0138-4371-a920-515098d72bfe", "vesselName": "HYUNDAI TOKYO", "berthName": "TECONT3", "empRb": "SAA", "status": "BE", "note": "Fonte: praticagem-rj.com.br (programação pública)", "source": "praticagem", "recordedAt": "2026-05-30T16:08:01.824406", "pob": "04/06 07:00", "cal": "13,00", "loa": "303,83", "dwt": "80059", "m": "S", "boca": "40,00", "gt": "74651"}, {"id": "f66e4238-df67-443e-9f65-fe878f365986", "vesselName": "COSCO SHIPPING DANUBE", "berthName": "TECONTPROLONG", "empRb": "CAM", "status": "BE", "note": "Fonte: praticagem-rj.com.br (programação pública)", "source": "praticagem", "recordedAt": "2026-05-30T16:08:01.824406", "pob": "04/06 09:00", "cal": "13,00", "loa": "299,90", "dwt": "111290", "m": "S", "boca": "48,33", "gt": "94623"}, {"id": "83ede8a3-78db-4c49-8bd9-8ddadeae8356", "vesselName": "STOLT OCELOT", "berthName": "TOLEO │ TECON RIO", "empRb": "CAM", "status": "BE", "note": "Fonte: praticagem-rj.com.br (programação pública)", "source": "praticagem", "recordedAt": "2026-05-30T16:08:01.824406", "pob": "04/06 15:00", "cal": "8,40", "loa": "155,00", "dwt": "23324", "m": "E", "boca": "24,83", "gt": "13516"}, {"id": "a082b4fa-cc8b-4ef2-92f5-6f1e07c0b02b", "vesselName": "MSC MADHU B", "berthName": "TECONT3", "empRb": "WIL", "status": "BE", "note": "Fonte: praticagem-rj.com.br (programação pública)", "source": "praticagem", "recordedAt": "2026-05-30T16:08:01.824406", "pob": "05/06 16:30", "cal": "15,15", "loa": "330,08", "dwt": "141838", "m": "E", "boca": "48,31", "gt": "113112"}, {"id": "ad92e62d-46fe-4973-9c80-50ef7825195c", "vesselName": "MSC MADHU B", "berthName": "TECONT3", "empRb": "WIL", "status": "BE", "note": "Fonte: praticagem-rj.com.br (programação pública)", "source": "praticagem", "recordedAt": "2026-05-30T16:08:01.824406", "pob": "06/06 06:30", "cal": "15,15", "loa": "330,08", "dwt": "141838", "m": "S", "boca": "48,31", "gt": "113112"}, {"id": "f90814ec-fc4f-48ae-bac7-3565e9231d86", "vesselName": "MSC SOFIA PAZ", "berthName": "TECONT3", "empRb": "WIL", "status": "BE", "note": "Fonte: praticagem-rj.com.br (programação pública)", "source": "praticagem", "recordedAt": "2026-05-30T16:08:01.824406", "pob": "06/06 09:00", "cal": "13,20", "loa": "299,92", "dwt": "120335", "m": "E", "boca": "48,28", "gt": "94930"}, {"id": "74c5fc04-7e84-40db-9dff-b92341cf3c94", "vesselName": "MSC ATHENS", "berthName": "TECONT2", "empRb": "WIL", "status": "BE", "note": "Fonte: praticagem-rj.com.br (programação pública)", "source": "praticagem", "recordedAt": "2026-05-30T16:08:01.824406", "pob": "06/06 11:00", "cal": "11,50", "loa": "299,95", "dwt": "116547", "m": "E", "boca": "48,30", "gt": "96262"}, {"id": "4714298d-697d-4abd-ac99-aae1e7081e8e", "vesselName": "MSC SOFIA PAZ", "berthName": "TECONT3", "empRb": "WIL", "status": "BE", "note": "Fonte: praticagem-rj.com.br (programação pública)", "source": "praticagem", "recordedAt": "2026-05-30T16:08:01.824406", "pob": "07/06 07:00", "cal": "12,60", "loa": "299,92", "dwt": "120335", "m": "S", "boca": "48,28", "gt": "94930"}, {"id": "14861113-d6dc-4371-acff-cb2247c9416b", "vesselName": "MSC ATHENS", "berthName": "TECONT2", "empRb": "WIL", "status": "BE", "note": "Fonte: praticagem-rj.com.br (programação pública)", "source": "praticagem", "recordedAt": "2026-05-30T16:08:01.824406", "pob": "07/06 08:00", "cal": "11,50", "loa": "299,95", "dwt": "116547", "m": "S", "boca": "48,30", "gt": "96262"}, {"id": "c42ed7bf-7b5c-4a47-8626-da99e937ff3d", "vesselName": "COSCO SHIPPING RHINE", "berthName": "TECONTPROLONG", "empRb": "CAM", "status": "BE", "note": "Fonte: praticagem-rj.com.br (programação pública)", "source": "praticagem", "recordedAt": "2026-05-30T16:08:01.824406", "pob": "10/06 08:00", "cal": "13,50", "loa": "299,90", "dwt": "111189", "m": "E", "boca": "48,33", "gt": "94623"}, {"id": "0d889ba7-be9b-4ed0-96ed-31c757043527", "vesselName": "COSCO SHIPPING RHINE", "berthName": "TECONTPROLONG", "empRb": "CAM", "status": "BE", "note": "Fonte: praticagem-rj.com.br (programação pública)", "source": "praticagem", "recordedAt": "2026-05-30T16:08:01.824406", "pob": "11/06 08:00", "cal": "13,00", "loa": "299,90", "dwt": "111189", "m": "S", "boca": "48,33", "gt": "94623"}, {"id": "6acc375e-2667-4d22-b6c8-2e2eb21c5af2", "vesselName": "MSC PALAK", "berthName": "TECONT3", "empRb": "WIL", "status": "BE", "note": "Fonte: praticagem-rj.com.br (programação pública)", "source": "praticagem", "recordedAt": "2026-05-30T16:08:01.824406", "pob": "15/06 08:00", "cal": "13,10", "loa": "299,90", "dwt": "128561", "m": "E", "boca": "48,33", "gt": "97805"}, {"id": "18bf2d6a-717b-4740-8201-8eb48db248f0", "vesselName": "MSC PALAK", "berthName": "TECONT3", "empRb": "WIL", "status": "BE", "note": "Fonte: praticagem-rj.com.br (programação pública)", "source": "praticagem", "recordedAt": "2026-05-30T16:08:01.824406", "pob": "16/06 06:30", "cal": "13,10", "loa": "299,90", "dwt": "128561", "m": "S", "boca": "48,33", "gt": "97805"}, {"id": "e166aef0-1f5d-429b-9d2e-ac224ca89720", "vesselName": "CMA CGM BAHIA", "berthName": "TECONTPROLONG", "empRb": "SAA", "status": "BE", "note": "Fonte: praticagem-rj.com.br (programação pública)", "source": "praticagem", "recordedAt": "2026-05-30T16:08:01.824406", "pob": "16/06 08:30", "cal": "13,50", "loa": "336,00", "dwt": "146104", "m": "E", "boca": "51,00", "gt": "129503"}, {"id": "921d0093-6099-4562-a292-5f0cad54b7be", "vesselName": "CMA CGM BAHIA", "berthName": "TECONTPROLONG", "empRb": "SAA", "status": "BE", "note": "Fonte: praticagem-rj.com.br (programação pública)", "source": "praticagem", "recordedAt": "2026-05-30T16:08:01.824406", "pob": "17/06 06:30", "cal": "13,00", "loa": "336,00", "dwt": "146104", "m": "S", "boca": "51,00", "gt": "129503"}, {"id": "02bbe4ed-6fb2-4ab8-b6d2-690ea6018218", "vesselName": "ONE GEORGE WASHINGTON", "berthName": "TECONT3", "empRb": "SAA", "status": "BE", "note": "Fonte: praticagem-rj.com.br (programação pública)", "source": "praticagem", "recordedAt": "2026-05-30T16:08:01.824406", "pob": "18/06 00:00", "cal": "9,00", "loa": "284,60", "dwt": "71309", "m": "E", "boca": "40,00", "gt": "68665"}, {"id": "0bddd59b-2991-46dd-b291-f3aae8d4916d", "vesselName": "ONE GEORGE WASHINGTON", "berthName": "TECONT3", "empRb": "SAA", "status": "BE", "note": "Fonte: praticagem-rj.com.br (programação pública)", "source": "praticagem", "recordedAt": "2026-05-30T16:08:01.824406", "pob": "18/06 15:00", "cal": "8,50", "loa": "284,60", "dwt": "71309", "m": "S", "boca": "40,00", "gt": "68665"}], "marketShare": {"rows": [{"empRb": "WIL", "count": 23, "sharePct": 42.59}, {"empRb": "SAA", "count": 20, "sharePct": 37.04}, {"empRb": "CAM", "count": 9, "sharePct": 16.67}, {"empRb": "N/A", "count": 2, "sharePct": 3.7}], "total": 54}, "marketShareWindows": {"today": {"rows": [{"empRb": "WIL", "count": 23, "sharePct": 42.59}, {"empRb": "SAA", "count": 20, "sharePct": 37.04}, {"empRb": "CAM", "count": 9, "sharePct": 16.67}, {"empRb": "N/A", "count": 2, "sharePct": 3.7}], "total": 54}, "last7d": {"rows": [{"empRb": "WIL", "count": 23, "sharePct": 42.59}, {"empRb": "SAA", "count": 20, "sharePct": 37.04}, {"empRb": "CAM", "count": 9, "sharePct": 16.67}, {"empRb": "N/A", "count": 2, "sharePct": 3.7}], "total": 54}, "last30d": {"rows": [{"empRb": "WIL", "count": 23, "sharePct": 42.59}, {"empRb": "SAA", "count": 20, "sharePct": 37.04}, {"empRb": "CAM", "count": 9, "sharePct": 16.67}, {"empRb": "N/A", "count": 2, "sharePct": 3.7}], "total": 54}}, "competitors": [{"company": "WIL", "mmsi": "710005290", "name": "LYRA", "insideManeuverGeofence": false, "maneuverGeofenceName": "—", "latitude": null, "longitude": null}, {"company": "WIL", "mmsi": "710000009", "name": "HERCULES", "insideManeuverGeofence": true, "maneuverGeofenceName": "Baia de Guanabara Interno", "latitude": -22.89203, "longitude": -43.19148}, {"company": "WIL", "mmsi": "710000391", "name": "WEZEN", "insideManeuverGeofence": true, "maneuverGeofenceName": "ARMAZEM 01 -08", "latitude": -22.89188, "longitude": -43.19147}, {"company": "WIL", "mmsi": "710018340", "name": "WS PEGASUS", "insideManeuverGeofence": true, "maneuverGeofenceName": "ARMAZEM 01 -08", "latitude": -22.89186, "longitude": -43.19142}, {"company": "CAM", "mmsi": "710009550", "name": "C NEBLINA", "insideManeuverGeofence": true, "maneuverGeofenceName": "Baia de Guanabara Interno", "latitude": -22.87002, "longitude": -43.11174}, {"company": "CAM", "mmsi": "710008322", "name": "C HARPIA", "insideManeuverGeofence": false, "maneuverGeofenceName": "—", "latitude": null, "longitude": null}, {"company": "CAM", "mmsi": "710010250", "name": "C ARRAIAL / C SALVADOR", "insideManeuverGeofence": false, "maneuverGeofenceName": "—", "latitude": null, "longitude": null}], "scheduleChanges": {"previousUpdatedAt": "2026-05-30T16:07:58.965105", "currentUpdatedAt": "2026-05-30T17:45:55.477047", "addedCount": 0, "removedCount": 0, "delayedCount": 0, "advancedCount": 0, "anyChange": false, "added": [], "removed": [], "delayed": [], "advanced": [], "changed": []}};</script>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>Dashboard estratégico</h1>
+      <div class="meta">Geofences · manobras SAA · frota SAAM (AIS)</div>
+    </div>
+    <a class="nav" id="backMap" href="./">← Mapa ao vivo</a>
+  </header>
+
+  <div id="loadErr" class="err" style="display:none;"></div>
+
+  <section>
+    <h2>Status das geofences</h2>
+    <p class="hint">Dados do usuário configurado no servidor (<code>DASHBOARD_USER_ID</code>). Ocupação em tempo real a partir do buffer AIS.</p>
+    <div style="overflow-x:auto;">
+      <table id="tblGeofences">
+        <thead>
+          <tr>
+            <th>Nome</th>
+            <th>Tipo</th>
+            <th>Escopo</th>
+            <th>Ativo</th>
+            <th class="geo-lamp" title="Navio comercial SAA (não SAAM-BGRA): nesta geofence em berço/polígono; na base, também se houver SAA em qualquer berço">SAA</th>
+            <th class="geo-lamp" title="Rebocador SAAM-BGRA dentro da geofence">SAAM</th>
+            <th title="Rebocadores SAAM e navio mais próximo dentro do berço. Para BASE BRASCO: stand-by">EM MANOBRA</th>
+            <th>EMB DENTRO</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>Manobras SAA (EMP.RB)</h2>
+    <div class="sync-row">
+      <p class="hint" style="margin:0;flex:1;min-width:200px;">Registros em <code>data/users/&lt;id&gt;/saa_maneuvers.json</code>. A sincronização lê a <strong>tabela de programação</strong> (POB = horário previsto, …); se não existir no HTML, usa a fila «Navios na Pedra» (sem POB → sem destaque). <strong>Destaque (somente EMP.RB = SAA):</strong> azul antes dos 30 min; amarelo faltando 30 min; verde a piscar após a hora da POB. A sincronização com Praticagem e o refresh do painel ocorrem automaticamente a cada <strong>5 min</strong>; as cores atualizam a cada <strong>30 s</strong> no navegador.</p>
+    </div>
+    <div id="saaSyncMsg"></div>
+    <div style="overflow-x:auto;">
+      <table id="tblSaa">
+        <thead>
+          <tr>
+            <th>POB</th>
+            <th>Navio</th>
+            <th class="num">CAL</th>
+            <th class="num">LOA</th>
+            <th class="num">Boca</th>
+            <th class="num">DWT</th>
+            <th class="num">GT</th>
+            <th>M</th>
+            <th>Berço / local</th>
+            <th>EMP.RB</th>
+            <th>Status</th>
+            <th>Registrado</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>Frota SAAM — manobras e horas em geofence</h2>
+    <p class="hint">Contagem (manobra): cada <strong>saída</strong> de um rebocador SAAM de um geofence tipo <strong>berço</strong> ou <strong>polígono</strong> soma 1 manobra e acumula o tempo dentro dessa área. Saídas da <strong>base rebocador</strong> não entram nesta contagem nem nas horas persistidas. <strong>Milhas náuticas (MN)</strong> somam a distância entre posições AIS consecutivas (Haversine), só para a frota SAAM-BGRA. Tudo persistido em <code>tug_geofence_stats.json</code>.</p>
+    <div class="chart-wrap">
+      <canvas id="chartTugs" aria-label="Comparativo rebocadores"></canvas>
+    </div>
+  </section>
+
+  <section>
+    <h2>Market share (Praticagem-RJ)</h2>
+    <div class="hint-row">
+      <span>Participação por <code>EMP.RB</code> usando a tabela da praticagem.</span>
+      <label for="marketWindow">Janela:</label>
+      <select id="marketWindow">
+        <option value="today">Hoje</option>
+        <option value="last7d">7 dias</option>
+        <option value="last30d" selected>30 dias</option>
+      </select>
+    </div>
+    <div class="chart-wrap">
+      <canvas id="chartMarketShare" aria-label="Market share de manobras"></canvas>
+    </div>
+  </section>
+
+  <section>
+    <h2>Assistente de estratégias (Grok)</h2>
+    <p class="hint">Pergunte sobre posição dos rebocadores, manobras programadas e concorrentes em geofence de manobra.</p>
+    <div class="strategy-box">
+      <textarea id="strategyQuestion" placeholder="Ex.: Quais concorrentes estão manobrando agora e qual o impacto no market share?"></textarea>
+      <textarea id="strategyLearnNote" placeholder="Aprendizado opcional para memória do assistente (ex.: Em navio >300m, priorizar 4 rebocadores)."></textarea>
+      <div class="strategy-actions">
+        <button type="button" id="btnStrategyAsk">Consultar assistente</button>
+        <button type="button" id="btnStrategyReport">Gerar relatório</button>
+        <button type="button" id="btnStrategyInsights">Gerar insights</button>
+      </div>
+      <div id="strategyAnswer">Aguardando pergunta.</div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Monitor de alterações da programação</h2>
+    <p class="hint">Acompanha a cada refresh: simultaneidade, atrasos, adiantamentos e mudanças (entrada/saída) na programação.</p>
+    <div id="scheduleChangesBox" class="hint">Aguardando atualização...</div>
+  </section>
+
+  <script>
+    (function () {
+      if (window.location.protocol === "file:") return;
+      const p = window.location.pathname || "";
+      if (p.indexOf("/frontend/dashboard.html") >= 0 && !window.__DASHBOARD_OVERVIEW__) {
+        const fi = p.indexOf("/frontend/");
+        const root = fi >= 0 ? p.slice(0, fi).replace(/\/+$/, "") : "";
+        window.location.replace((root || "") + "/dashboard");
+      }
+    })();
+
+    const appConfig = window.APP_CONFIG || {};
+    const API_BASE = (appConfig.API_BASE || "").replace(/\/$/, "");
+    function basePathForApi() {
+      const pathname = (window.location.pathname || "/").replace(/\/+$/, "") || "";
+      const fi = pathname.indexOf("/frontend/");
+      if (fi >= 0 && pathname.includes("dashboard")) {
+        return pathname.slice(0, fi).replace(/\/+$/, "") || "";
+      }
+      let p = pathname;
+      if (p.endsWith("/dashboard")) {
+        p = p.slice(0, -"/dashboard".length);
+      }
+      return p.replace(/\/+$/, "") || "";
+    }
+    function apiUrl(path) {
+      const p = path.startsWith("/") ? path : `/${path}`;
+      if (API_BASE) return `${API_BASE.replace(/\/$/, "")}${p}`;
+      const base = basePathForApi();
+      const joined = `${base}${p}`;
+      try {
+        return new URL(joined, window.location.origin).href;
+      } catch (_) {
+        return joined;
+      }
+    }
+    const back = document.getElementById("backMap");
+    back.href = `${basePathForApi()}/`;
+
+    let chartInstance = null;
+    let marketShareChart = null;
+    let latestMarketShareWindows = null;
+
+    function esc(s) {
+      return String(s ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;");
+    }
+
+    function geoLampCell(on, kind, names) {
+      const hint =
+        kind === "saa"
+          ? "SAA: navio comercial nesta área; nas bases, também acende se houver SAA em algum berço"
+          : "Rebocador SAAM-BGRA dentro desta geofence";
+      const arr = Array.isArray(names) ? names.filter((x) => String(x || "").trim()) : [];
+      let detail = "";
+      if (on && arr.length) {
+        detail = arr.join(" · ");
+        if (detail.length > 320) detail = `${detail.slice(0, 317)}…`;
+      }
+      const title = detail ? `${hint} — ${detail}` : hint;
+      const label = kind === "saa" ? "Indicador SAA" : "Indicador SAAM";
+      const ariaDetail = detail ? ` ${esc(detail)}` : "";
+      const cls = on
+        ? kind === "saa"
+          ? "lamp lamp--saa-on"
+          : "lamp lamp--saam-on"
+        : "lamp lamp--off";
+      return `<span class="${cls}" role="img" aria-label="${esc(label)}: ${on ? "ligado" : "desligado"}${ariaDetail}" title="${esc(title)}"></span>`;
+    }
+
+    function renderGeofences(rows) {
+      const tb = document.querySelector("#tblGeofences tbody");
+      if (!rows || !rows.length) {
+        tb.innerHTML = '<tr><td colspan="8" style="color:var(--muted);">Nenhuma geofence cadastrada.</td></tr>';
+        return;
+      }
+      tb.innerHTML = rows
+        .map((r) => {
+          const active = r.isActive !== false;
+          const pill = active ? '<span class="pill pill-on">Sim</span>' : '<span class="pill pill-off">Não</span>';
+          const n = Number(r.vesselCount || 0);
+          const lampSaa = Boolean(r.lampSaaManeuver);
+          const lampSaam = Boolean(r.lampSaamInside);
+          const saaNames = r.lampSaaNames || [];
+          const saamNames = r.lampSaamNames || [];
+          const emManobra = r.emManobra || "—";
+          return `<tr>
+            <td>${esc(r.name)}</td>
+            <td>${esc(r.type)}</td>
+            <td>${esc(r.fleetScope || "all")}</td>
+            <td>${pill}</td>
+            <td class="geo-lamp">${geoLampCell(lampSaa, "saa", saaNames)}</td>
+            <td class="geo-lamp">${geoLampCell(lampSaam, "saam", saamNames)}</td>
+            <td>${esc(emManobra)}</td>
+            <td>${n}</td>
+          </tr>`;
+        })
+        .join("");
+    }
+
+    function saaCell(r, key) {
+      const v = r[key];
+      const t = v != null && String(v).trim() !== "" ? String(v) : "—";
+      return esc(t);
+    }
+
+    const SAA_WARN_BEFORE_MS = 30 * 60 * 1000;
+
+    function parseSaaPobToMs(pob) {
+      const raw = String(pob || "").trim();
+      if (!raw) return null;
+      const s = raw.replace(/\s+/g, " ").replace(/h/gi, ":");
+      // Regra de destaque exige data + hora (hh:mm) válidas.
+      if (!/\d{1,2}:\d{2}/.test(s)) return null;
+      const now = new Date();
+      const y0 = now.getFullYear();
+      const tryDate = (d, m, y, hh, mm) => {
+        const dt = new Date(y, m - 1, d, hh, mm, 0, 0);
+        const t = dt.getTime();
+        if (Number.isNaN(t)) return null;
+        // Garante que a data não "rolou" para outro dia/mês por valor inválido.
+        if (
+          dt.getFullYear() !== y ||
+          dt.getMonth() !== (m - 1) ||
+          dt.getDate() !== d ||
+          dt.getHours() !== hh ||
+          dt.getMinutes() !== mm
+        ) {
+          return null;
+        }
+        return t;
+      };
+      let m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})[^\d]?(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+      if (m) return tryDate(+m[1], +m[2], +m[3], +m[4], +m[5]);
+      m = s.match(/^(\d{1,2})\/(\d{1,2})[^\d]?(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+      if (m) {
+        let t = tryDate(+m[1], +m[2], y0, +m[3], +m[4]);
+        if (t != null && t < now.getTime() - 14 * 86400000) t = tryDate(+m[1], +m[2], y0 + 1, +m[3], +m[4]);
+        return t;
+      }
+      m = s.match(/^(\d{4})-(\d{2})-(\d{2})[T\s](\d{1,2}):(\d{2})/);
+      if (m) return tryDate(+m[3], +m[2], +m[1], +m[4], +m[5]);
+      // Fallback seguro: só tenta Date.parse quando o formato começa com ano (ISO/RFC-like),
+      // evitando ambiguidade de dd/mm vs mm/dd que causava "verde" indevido.
+      if (/^\d{4}[-/]/.test(s)) {
+        const iso = Date.parse(s);
+        if (!Number.isNaN(iso)) {
+          const dt = new Date(iso);
+          if (!Number.isNaN(dt.getTime())) return iso;
+        }
+      }
+      return null;
+    }
+
+    function isSaaManeuverRow(r) {
+      return String(r?.empRb || "")
+        .toUpperCase()
+        .includes("SAA");
+    }
+
+    function saaRowHighlightFromPobMs(pobMs, nowMs) {
+      if (pobMs == null || !Number.isFinite(pobMs)) return "";
+      if (nowMs < pobMs - SAA_WARN_BEFORE_MS) return "saa-row--future";
+      if (nowMs < pobMs) return "saa-row--soon";
+      return "saa-row--live";
+    }
+
+    function applySaaRowHighlights() {
+      const tb = document.querySelector("#tblSaa tbody");
+      if (!tb) return;
+      const now = Date.now();
+      tb.querySelectorAll("tr[data-saa-pob-ms]").forEach((tr) => {
+        const raw = tr.getAttribute("data-saa-pob-ms");
+        const ms = raw ? Number(raw) : NaN;
+        tr.classList.remove("saa-row--future", "saa-row--soon", "saa-row--live");
+        if (!Number.isFinite(ms)) return;
+        const cls = saaRowHighlightFromPobMs(ms, now);
+        if (cls) tr.classList.add(cls);
+      });
+    }
+
+    function saaRowKey(r) {
+      const parts = [
+        r?.source,
+        r?.pob,
+        r?.vesselName,
+        r?.berthName,
+        r?.empRb,
+        r?.status,
+        r?.cal,
+        r?.loa,
+        r?.boca,
+        r?.dwt,
+        r?.gt,
+        r?.m
+      ];
+      return parts.map((v) => String(v || "").trim().toUpperCase()).join("|");
+    }
+
+    function setSaaRowContent(tr, r) {
+      tr.innerHTML = `
+          <td>${saaCell(r, "pob")}</td>
+          <td>${saaCell(r, "vesselName")}</td>
+          <td class="num">${saaCell(r, "cal")}</td>
+          <td class="num">${saaCell(r, "loa")}</td>
+          <td class="num">${saaCell(r, "boca")}</td>
+          <td class="num">${saaCell(r, "dwt")}</td>
+          <td class="num">${saaCell(r, "gt")}</td>
+          <td>${saaCell(r, "m")}</td>
+          <td>${saaCell(r, "berthName")}</td>
+          <td>${saaCell(r, "empRb")}</td>
+          <td>${saaCell(r, "status")}</td>
+          <td>${saaCell(r, "recordedAt")}</td>
+      `;
+    }
+
+    function applySaaRowMeta(tr, r, now) {
+      const pobMs = parseSaaPobToMs(r.pob);
+      const isSaa = isSaaManeuverRow(r);
+      const cls = isSaa ? saaRowHighlightFromPobMs(pobMs, now) : "";
+      tr.classList.remove("saa-row--future", "saa-row--soon", "saa-row--live");
+      if (cls) tr.classList.add(cls);
+      if (isSaa && pobMs != null && Number.isFinite(pobMs)) {
+        tr.setAttribute("data-saa-pob-ms", String(pobMs));
+      } else {
+        tr.removeAttribute("data-saa-pob-ms");
+      }
+    }
+
+    function renderSaa(items) {
+      const tb = document.querySelector("#tblSaa tbody");
+      if (!items || !items.length) {
+        tb.innerHTML = '<tr><td colspan="12" style="color:var(--muted);">Nenhum registro SAA encontrado no ciclo atual de sincronização automática.</td></tr>';
+        return;
+      }
+      const now = Date.now();
+      const existing = new Map();
+      tb.querySelectorAll("tr[data-row-key]").forEach((tr) => {
+        existing.set(tr.getAttribute("data-row-key"), tr);
+      });
+
+      const desiredRows = [];
+      const usedKeys = new Set();
+      for (const r of items) {
+        const key = saaRowKey(r);
+        if (usedKeys.has(key)) continue;
+        usedKeys.add(key);
+
+        let tr = existing.get(key);
+        if (!tr) {
+          tr = document.createElement("tr");
+          tr.setAttribute("data-row-key", key);
+        }
+        setSaaRowContent(tr, r);
+        applySaaRowMeta(tr, r, now);
+        desiredRows.push(tr);
+      }
+
+      // Remove linhas antigas não presentes no novo snapshot.
+      existing.forEach((tr, key) => {
+        if (!usedKeys.has(key)) tr.remove();
+      });
+
+      // Reordena/insere sem limpar o tbody inteiro (evita flicker).
+      for (let i = 0; i < desiredRows.length; i++) {
+        const row = desiredRows[i];
+        const currentAtPos = tb.children[i];
+        if (currentAtPos !== row) {
+          tb.insertBefore(row, currentAtPos || null);
+        }
+      }
+      applySaaRowHighlights();
+    }
+
+    function renderChart(chartRows) {
+      const labels = (chartRows || []).map((r) => r.abbr || r.mmsi);
+      const maneuvers = (chartRows || []).map((r) => r.totalManeuvers || 0);
+      const hours = (chartRows || []).map((r) => r.totalHours || 0);
+      const nm = (chartRows || []).map((r) => Number(r.totalNauticalMiles) || 0);
+      const ctx = document.getElementById("chartTugs");
+      if (chartInstance) chartInstance.destroy();
+      chartInstance = new Chart(ctx, {
+        type: "bar",
+        data: {
+          labels,
+          datasets: [
+            {
+              label: "Nº manobras (saídas de berço/polígono)",
+              data: maneuvers,
+              backgroundColor: "rgba(53, 200, 255, 0.55)",
+              borderColor: "rgba(53, 200, 255, 0.95)",
+              borderWidth: 1,
+              yAxisID: "y"
+            },
+            {
+              label: "Horas em berço/polígono",
+              data: hours,
+              backgroundColor: "rgba(55, 217, 137, 0.45)",
+              borderColor: "rgba(55, 217, 137, 0.9)",
+              borderWidth: 1,
+              yAxisID: "y1"
+            },
+            {
+              label: "Milhas náuticas (MN)",
+              data: nm,
+              backgroundColor: "rgba(255, 184, 107, 0.55)",
+              borderColor: "rgba(255, 184, 107, 0.95)",
+              borderWidth: 1,
+              yAxisID: "y2"
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: "index", intersect: false },
+          layout: {
+            padding: { right: 8 }
+          },
+          plugins: {
+            legend: { labels: { color: "#eaf4ff" } }
+          },
+          scales: {
+            x: {
+              ticks: { color: "#9ab6d4" },
+              grid: { color: "rgba(47, 79, 109, 0.35)" }
+            },
+            y: {
+              type: "linear",
+              position: "left",
+              title: { display: true, text: "Manobras", color: "#9ab6d4" },
+              ticks: { color: "#9ab6d4", precision: 0 },
+              grid: { color: "rgba(47, 79, 109, 0.35)" }
+            },
+            y1: {
+              type: "linear",
+              position: "right",
+              title: { display: true, text: "Horas", color: "#9ab6d4" },
+              ticks: { color: "#9ab6d4" },
+              grid: { drawOnChartArea: false }
+            },
+            y2: {
+              type: "linear",
+              position: "right",
+              offset: true,
+              title: { display: true, text: "MN", color: "#ffb86b" },
+              ticks: { color: "#ffb86b" },
+              grid: { drawOnChartArea: false }
+            }
+          }
+        }
+      });
+    }
+
+    function renderMarketShare(marketShare) {
+      const rows = marketShare?.rows || [];
+      const labels = rows.map((r) => r.empRb);
+      const values = rows.map((r) => Number(r.count) || 0);
+      const ctx = document.getElementById("chartMarketShare");
+      if (!ctx) return;
+      if (marketShareChart) marketShareChart.destroy();
+      marketShareChart = new Chart(ctx, {
+        type: "doughnut",
+        data: {
+          labels,
+          datasets: [
+            {
+              data: values,
+              backgroundColor: [
+                "rgba(53, 200, 255, 0.75)",
+                "rgba(55, 217, 137, 0.75)",
+                "rgba(255, 184, 107, 0.75)",
+                "rgba(255, 99, 132, 0.75)",
+                "rgba(180, 140, 255, 0.75)",
+              ],
+              borderColor: "rgba(7, 20, 36, 0.9)",
+              borderWidth: 1,
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { labels: { color: "#eaf4ff" } } },
+        },
+      });
+    }
+
+    function renderScheduleChanges(changes) {
+      const box = document.getElementById("scheduleChangesBox");
+      if (!box) return;
+      const c = changes || {};
+      const delayed = Number(c.delayedCount || 0);
+      const advanced = Number(c.advancedCount || 0);
+      const added = Number(c.addedCount || 0);
+      const removed = Number(c.removedCount || 0);
+      const upd = c.currentUpdatedAt || "—";
+      const topDelayed = (c.delayed || []).slice(0, 3).map((x) => `${x.vesselName} (${x.oldPob} -> ${x.newPob}, +${x.deltaMinutes} min)`);
+      const topAdvanced = (c.advanced || []).slice(0, 3).map((x) => `${x.vesselName} (${x.oldPob} -> ${x.newPob}, ${x.deltaMinutes} min)`);
+      const lines = [
+        `Atualizado: ${upd}`,
+        `Entradas: ${added} | Saídas: ${removed} | Atrasos: ${delayed} | Adiantamentos: ${advanced}`,
+      ];
+      if (topDelayed.length) lines.push(`Atrasos recentes: ${topDelayed.join(" · ")}`);
+      if (topAdvanced.length) lines.push(`Adiantamentos recentes: ${topAdvanced.join(" · ")}`);
+      box.textContent = lines.join("\n");
+    }
+
+    function getSelectedMarketShare() {
+      const key = document.getElementById("marketWindow")?.value || "last30d";
+      const wins = latestMarketShareWindows || {};
+      return wins[key] || wins.last30d || { rows: [] };
+    }
+
+    async function askStrategyAssistant(action) {
+      const qEl = document.getElementById("strategyQuestion");
+      const learnEl = document.getElementById("strategyLearnNote");
+      const out = document.getElementById("strategyAnswer");
+      const btn = document.getElementById("btnStrategyAsk");
+      const btnReport = document.getElementById("btnStrategyReport");
+      const btnInsights = document.getElementById("btnStrategyInsights");
+      const question = String(qEl?.value || "").trim();
+      const learnNote = String(learnEl?.value || "").trim();
+      if (!question) {
+        out.textContent = "Digite uma pergunta para o assistente.";
+        return;
+      }
+      btn.disabled = true;
+      btnReport.disabled = true;
+      btnInsights.disabled = true;
+      out.textContent = "Consultando assistente...";
+      try {
+        const payload = JSON.stringify({ question, action: action || "ask", learnNote });
+        const paths = [
+          "/api/dashboard/strategy-assistant",
+          "/dashboard/api/strategy-assistant",
+        ];
+        let res = null;
+        for (const p of paths) {
+          const attempt = await fetch(apiUrl(p), {
+            method: "POST",
+            headers: {
+              Accept: "application/json",
+              "Content-Type": "application/json",
+            },
+            body: payload,
+          });
+          if (attempt.status !== 404) {
+            res = attempt;
+            break;
+          }
+          res = attempt;
+        }
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok || !body.ok) {
+          throw new Error(body.error || `HTTP ${res.status}`);
+        }
+        out.textContent = String(body.answer || "Sem resposta.");
+      } catch (e) {
+        out.textContent = `Falha no assistente: ${String(e.message || e)}`;
+      } finally {
+        btn.disabled = false;
+        btnReport.disabled = false;
+        btnInsights.disabled = false;
+      }
+    }
+
+    let dashboardBootstrapped = false;
+    let hadSuccessfulRender = false;
+
+    async function load() {
+      const errEl = document.getElementById("loadErr");
+      errEl.style.display = "none";
+      try {
+        let data = null;
+        if (!dashboardBootstrapped && window.__DASHBOARD_OVERVIEW__) {
+          dashboardBootstrapped = true;
+          data = window.__DASHBOARD_OVERVIEW__;
+          try {
+            delete window.__DASHBOARD_OVERVIEW__;
+          } catch (_) {}
+        } else {
+          const stRes = await fetch(apiUrl("/api/status?expand=dashboard"));
+          if (stRes.ok) {
+            const stBody = await stRes.json();
+            if (stBody.dashboard && stBody.dashboard.ok) {
+              data = stBody.dashboard;
+            }
+          }
+          if (!data) {
+            const primary = `${basePathForApi()}/dashboard/api/overview`;
+            let res = await fetch(primary);
+            if (!res.ok) res = await fetch(apiUrl("/api/dashboard/overview"));
+            if (!res.ok) {
+              throw new Error(
+                `HTTP ${res.status} — API indisponível nesta origem. ` +
+                  "Abra o dashboard pela rota do servidor: /dashboard (dados vêm no HTML). " +
+                  "Na pasta do projeto: uvicorn main:app --host 0.0.0.0 --port 8080"
+              );
+            }
+            data = await res.json();
+          }
+        }
+        if (!data.ok) throw new Error(data.error || "Falha ao carregar");
+        renderGeofences(data.geofenceStatus || []);
+        renderSaa(data.saaManeuvers || []);
+        renderChart(data.tugChart || []);
+        latestMarketShareWindows = data.marketShareWindows || null;
+        renderMarketShare(getSelectedMarketShare());
+        renderScheduleChanges(data.scheduleChanges || {});
+        hadSuccessfulRender = true;
+      } catch (e) {
+        if (hadSuccessfulRender) {
+          console.warn("[dashboard] atualização falhou (mantendo último estado)", e);
+          return;
+        }
+        errEl.textContent = String(e.message || e);
+        errEl.style.display = "block";
+      }
+    }
+
+    async function postPraticagemSync() {
+      const modeRes = await fetch(apiUrl("/api/mode"), {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ mode: "live", syncPraticagemSaa: true })
+      });
+      if (modeRes.status !== 404) return modeRes;
+      const paths = [
+        "/api/status/sync-praticagem-saa",
+        "/api/praticagem/saa-sync",
+        "/api/dashboard/saa-maneuvers/sync-praticagem",
+        "/dashboard/api/saa-maneuvers/sync-praticagem"
+      ];
+      let last = null;
+      for (const p of paths) {
+        const res = await fetch(apiUrl(p), {
+          method: "POST",
+          headers: { Accept: "application/json" }
+        });
+        last = res;
+        if (res.status !== 404) return res;
+      }
+      return last;
+    }
+
+    async function syncPraticagemAndLoad() {
+      const msg = document.getElementById("saaSyncMsg");
+      if (msg) msg.textContent = "";
+      try {
+        const res = await postPraticagemSync();
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok || !body.ok) {
+          throw new Error(
+            body.error ||
+              `HTTP ${res.status} — confirme que o uvicorn corre nesta pasta com o main.py atual (não outro servidor na porta 8080).`
+          );
+        }
+        const n = body.imported ?? 0;
+        const w = body.warning ? ` ${body.warning}` : "";
+        let dbg = "";
+        if (n === 0 && body.parseDiagnostics) {
+          const d = body.parseDiagnostics;
+          dbg =
+            ` Diagnóstico: HTML ${d.htmlChars ?? "?"} chars; zonas ${d.zonesMatched ?? "?"}; ` +
+            `navios (strict/loose) ${d.shipsStrictMatched ?? "?"}/${d.shipsLooseMatched ?? "?"}; ` +
+            `divConteudoLateral=${d.hasDivConteudoLateral ? "sim" : "não"}.`;
+        }
+        if (msg) msg.textContent = `Sincronização automática: importadas ${n} linha(s).${w}${dbg}`;
+        await load();
+      } catch (e) {
+        if (msg) msg.textContent = `Sincronização automática falhou: ${String(e.message || e)}`;
+        await load();
+      }
+    }
+    document.getElementById("btnStrategyAsk").addEventListener("click", () => askStrategyAssistant("ask"));
+    document.getElementById("btnStrategyReport").addEventListener("click", () => askStrategyAssistant("report"));
+    document.getElementById("btnStrategyInsights").addEventListener("click", () => askStrategyAssistant("insights"));
+    document.getElementById("marketWindow").addEventListener("change", () => {
+      renderMarketShare(getSelectedMarketShare());
+    });
+
+    syncPraticagemAndLoad();
+    setInterval(syncPraticagemAndLoad, 5 * 60 * 1000);
+    setInterval(applySaaRowHighlights, 30 * 1000);
+  </script>
+</body>
+<script>'undefined'=== typeof _trfq || (window._trfq = []);'undefined'=== typeof _trfd && (window._trfd=[]),_trfd.push({'tccl.baseHost':'secureserver.net'},{'ap':'cpsh-oh'},{'server':'p3plzcpnl506552'},{'dcenter':'p3'},{'cp_id':'10098111'},{'cp_cl':'8'}) // Monitoring performance to make your website faster. If you want to opt-out, please contact web hosting support.</script><script src='https://img1.wsimg.com/traffic-assets/js/tccl.min.js'></script></html>
